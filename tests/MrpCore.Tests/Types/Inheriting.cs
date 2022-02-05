@@ -55,7 +55,7 @@ public class Operator
     [MaxLength(64)] [Required] public string Name { get; set; } = null!;
 }
 
-public class MyContext : MrpContext<MyUnitOp, MyProductUnit, MyRouteOp, MyProductType, MyUnitState, MyOpResult>
+public class MyContext : MesContext<MyUnitOp, MyProductUnit, MyRouteOp, MyProductType, MyUnitState, MyOpResult>
 {
     public DbSet<Operator> Operators { get; set; } = null!;
     

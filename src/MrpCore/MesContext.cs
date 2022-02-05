@@ -3,7 +3,16 @@ using MrpCore.Models;
 
 namespace MrpCore;
 
-public class MrpContext<TUnitOperation, TProductUnit, TRouteOperation, TProductType, TUnitState, TOperationResult> : DbContext
+/// <summary>
+/// Manufacturing Execution System database context
+/// </summary>
+/// <typeparam name="TUnitOperation"></typeparam>
+/// <typeparam name="TProductUnit"></typeparam>
+/// <typeparam name="TRouteOperation"></typeparam>
+/// <typeparam name="TProductType"></typeparam>
+/// <typeparam name="TUnitState"></typeparam>
+/// <typeparam name="TOperationResult"></typeparam>
+public class MesContext<TUnitOperation, TProductUnit, TRouteOperation, TProductType, TUnitState, TOperationResult> : DbContext
     where TUnitState : UnitStateBase
     where TProductType : ProductTypeBase
     where TProductUnit : ProductUnitBase<TProductType>
@@ -18,7 +27,7 @@ public class MrpContext<TUnitOperation, TProductUnit, TRouteOperation, TProductT
     public DbSet<TUnitOperation> UnitOperations { get; set; } = null!;
     public DbSet<TOperationResult> OperationResults { get; set; } = null!;
 
-    public MrpContext(DbContextOptions options) : base(options)
+    public MesContext(DbContextOptions options) : base(options)
     {
         
     }
