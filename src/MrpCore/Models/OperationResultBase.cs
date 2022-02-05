@@ -7,7 +7,7 @@ public class OperationResultBase<TUnitOperation, TProductUnit, TRouteOperation, 
     where TUnitState : UnitStateBase
     where TProductType : ProductTypeBase
     where TProductUnit : ProductUnitBase<TProductType>
-    where TRouteOperation : RouteOperation<TProductType, TUnitState>
+    where TRouteOperation : RouteOperationBase<TProductType, TUnitState>
     where TUnitOperation : UnitOperationBase<TProductUnit, TRouteOperation, TProductType, TUnitState>
 {
     [Key]
@@ -17,7 +17,7 @@ public class OperationResultBase<TUnitOperation, TProductUnit, TRouteOperation, 
     public int UnitOperationId { get; set; }
     
     [ForeignKey(nameof(UnitOperationId))]
-    public TUnitOperation Operation { get; set; }
+    public TUnitOperation? Operation { get; set; }
     
     public bool Pass { get; set; }
     

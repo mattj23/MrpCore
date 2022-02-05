@@ -7,17 +7,22 @@ public class MrpContext<TUnitOperation, TProductUnit, TRouteOperation, TProductT
     where TUnitState : UnitStateBase
     where TProductType : ProductTypeBase
     where TProductUnit : ProductUnitBase<TProductType>
-    where TRouteOperation : RouteOperation<TProductType, TUnitState>
+    where TRouteOperation : RouteOperationBase<TProductType, TUnitState>
     where TUnitOperation : UnitOperationBase<TProductUnit, TRouteOperation, TProductType, TUnitState>
     where TOperationResult : OperationResultBase<TUnitOperation, TProductUnit, TRouteOperation, TProductType, TUnitState>
 {
-    public DbSet<TUnitState> States { get; set; }
-    public DbSet<TProductType> Types { get; set; }
-    public DbSet<TProductUnit> Units { get; set; }
-    public DbSet<TRouteOperation> RouteOperations { get; set; }
-    public DbSet<TUnitOperation> UnitOperations { get; set; }
-    public DbSet<TOperationResult> OperationResults { get; set; }
-    
+    public DbSet<TUnitState> States { get; set; } = null!;
+    public DbSet<TProductType> Types { get; set; } = null!;
+    public DbSet<TProductUnit> Units { get; set; } = null!;
+    public DbSet<TRouteOperation> RouteOperations { get; set; } = null!;
+    public DbSet<TUnitOperation> UnitOperations { get; set; } = null!;
+    public DbSet<TOperationResult> OperationResults { get; set; } = null!;
+
+    public MrpContext(DbContextOptions options) : base(options)
+    {
+        
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<TRouteOperation>().HasMany(e => e.Adds);

@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MrpCore.Models;
 
-public class RouteOperation<TProductType, TUnitState> 
+public class RouteOperationBase<TProductType, TUnitState> 
     where TProductType : ProductTypeBase
     where TUnitState : UnitStateBase
 {
@@ -25,6 +25,6 @@ public class RouteOperation<TProductType, TUnitState>
 
     public bool IsDefault { get; set; }
     
-    public ICollection<TUnitState> Adds { get; set; }
-    public ICollection<TUnitState> Removes { get; set; }
+    public ICollection<TUnitState>? Adds { get; set; }
+    public ICollection<TUnitState>? Removes { get; set; }
 }
