@@ -2,18 +2,16 @@ using System.ComponentModel.DataAnnotations;
 
 namespace MrpCore.Models;
 
-public class StateFlag
+public class ProductTypeBase
 {
     [Key]
     public int Id { get; set; }
     
+    [MaxLength(128)]
     [Required]
-    [MaxLength(32)]
     public string Name { get; set; } = null!;
     
-    [MaxLength(128)]
+    [MaxLength(256)]
     public string? Description { get; set; }
-    
-    public bool BlocksCompletion { get; set; }
-    
+
 }

@@ -3,7 +3,9 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MrpCore.Models;
 
-public class RouteOperation
+public class RouteOperation<TProductType, TUnitState> 
+    where TProductType : ProductTypeBase
+    where TUnitState : UnitStateBase
 {
     [Key]
     public int Id { get; set; }
@@ -12,7 +14,7 @@ public class RouteOperation
     public int ProductTypeId { get; set; }
     
     [ForeignKey(nameof(ProductTypeId))]
-    public ProductType? Type { get; set; }
+    public TProductType? Type { get; set; }
     
     [Required]
     public int OpNumber { get; set; }
@@ -23,6 +25,6 @@ public class RouteOperation
 
     public bool IsDefault { get; set; }
     
-    public ICollection<StateFlag> Adds { get; set; }
-    public ICollection<StateFlag> Removes { get; set; }
+    public ICollection<TUnitState> Adds { get; set; }
+    public ICollection<TUnitState> Removes { get; set; }
 }

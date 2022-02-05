@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MrpCore.Models;
 
-public class ProductUnit
+public class ProductUnitBase<TProductType> where TProductType : ProductTypeBase
 {
     [Key]
     public int Id { get; set; }
@@ -12,7 +12,7 @@ public class ProductUnit
     public int ProductTypeId { get; set; }
     
     [ForeignKey(nameof(ProductTypeId))]
-    public ProductType? Type { get; set; }
+    public TProductType? Type { get; set; }
     
     /// <summary>
     /// Gets or sets a flag which determines whether the item has been archived. Archived items do not get queried

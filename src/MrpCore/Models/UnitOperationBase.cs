@@ -3,7 +3,11 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MrpCore.Models;
 
-public class UnitOperation
+public class UnitOperationBase<TProductUnit, TRouteOperation, TProductType, TUnitState>
+    where TUnitState : UnitStateBase
+    where TProductType : ProductTypeBase
+    where TProductUnit : ProductUnitBase<TProductType>
+    where TRouteOperation : RouteOperation<TProductType, TUnitState>
 {
     [Key]
     public int Id { get; set; }
@@ -15,10 +19,9 @@ public class UnitOperation
     public int RouteOperationId { get; set; }
     
     [ForeignKey(nameof(ProductUnitId))]
-    public ProductUnit ProductUnit { get; set; }
+    public TProductUnit Product { get; set; }
     
     [ForeignKey(nameof(RouteOperationId))]
-    public RouteOperation RouteOperation { get; set; }
-    
+    public TRouteOperation RouteOperation { get; set; }
     
 }
