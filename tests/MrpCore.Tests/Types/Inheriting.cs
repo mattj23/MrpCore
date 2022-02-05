@@ -46,7 +46,7 @@ public class MyUnitOp : UnitOperationBase<MyProductUnit, MyRouteOp, MyProductTyp
 public class MyOpResult : OperationResultBase<MyUnitOp, MyProductUnit, MyRouteOp, MyProductType, MyUnitState>
 {
     public int OperatorId { get; set; }
-    [ForeignKey(nameof(OperatorId))] public Operator Operator { get; set; }
+    [ForeignKey(nameof(OperatorId))] public Operator Operator { get; set; } = null!;
 }
 
 public class Operator
