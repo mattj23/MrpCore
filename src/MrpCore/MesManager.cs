@@ -23,5 +23,32 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
         return _db.Types;
     }
 
+    public ValueTask<TProductType?> ProductTypeById(int id)
+    {
+        return _db.Types.FindAsync(id);
+    }
+    
+    public async Task<int> CreateProductType(TProductType newItem)
+    {
+        await _db.Types.AddAsync(newItem);
+        await _db.SaveChangesAsync();
+        return newItem.Id;
+    }
+    public IQueryable<TUnitState> UnitStates()
+    {
+        return _db.States;
+    }
+
+    public ValueTask<TUnitState?> UnitStateById(int id)
+    {
+        return _db.States.FindAsync(id);
+    }
+
+    public async Task<int> CreateUnitState(TUnitState newItem)
+    {
+        await _db.States.AddAsync(newItem);
+        await _db.SaveChangesAsync();
+        return newItem.Id;
+    }
 
 }
