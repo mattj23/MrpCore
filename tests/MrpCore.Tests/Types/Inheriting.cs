@@ -38,12 +38,12 @@ public class MyRouteOp : RouteOperationBase<MyProductType, MyUnitState>
     public string? WorkInstructionUrl { get; set; }
 }
 
-public class MyUnitOp : UnitOperationBase<MyProductUnit, MyRouteOp, MyProductType, MyUnitState>
+public class MyUnitOp : UnitOperationBase<MyProductType, MyUnitState, MyProductUnit, MyRouteOp>
 {
     
 }
 
-public class MyOpResult : OperationResultBase<MyUnitOp, MyProductUnit, MyRouteOp, MyProductType, MyUnitState>
+public class MyOpResult : OperationResultBase<MyProductType, MyUnitState, MyProductUnit, MyRouteOp, MyUnitOp>
 {
     public int OperatorId { get; set; }
     [ForeignKey(nameof(OperatorId))] public Operator Operator { get; set; } = null!;
@@ -55,7 +55,7 @@ public class Operator
     [MaxLength(64)] [Required] public string Name { get; set; } = null!;
 }
 
-public class MyContext : MesContext<MyUnitOp, MyProductUnit, MyRouteOp, MyProductType, MyUnitState, MyOpResult>
+public class MyContext : MesContext<MyProductType, MyUnitState, MyProductUnit, MyRouteOp, MyUnitOp, MyOpResult>
 {
     public DbSet<Operator> Operators { get; set; } = null!;
     

@@ -3,12 +3,12 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MrpCore.Models;
 
-public class OperationResultBase<TUnitOperation, TProductUnit, TRouteOperation, TProductType, TUnitState>
+public class OperationResultBase<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation>
     where TUnitState : UnitStateBase
     where TProductType : ProductTypeBase
     where TProductUnit : ProductUnitBase<TProductType>
     where TRouteOperation : RouteOperationBase<TProductType, TUnitState>
-    where TUnitOperation : UnitOperationBase<TProductUnit, TRouteOperation, TProductType, TUnitState>
+    where TUnitOperation : UnitOperationBase<TProductType, TUnitState, TProductUnit, TRouteOperation>
 {
     [Key]
     public int Id { get; set; }

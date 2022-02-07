@@ -12,13 +12,13 @@ namespace MrpCore;
 /// <typeparam name="TProductType"></typeparam>
 /// <typeparam name="TUnitState"></typeparam>
 /// <typeparam name="TOperationResult"></typeparam>
-public class MesContext<TUnitOperation, TProductUnit, TRouteOperation, TProductType, TUnitState, TOperationResult> : DbContext
+public class MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult> : DbContext
     where TUnitState : UnitStateBase
     where TProductType : ProductTypeBase
     where TProductUnit : ProductUnitBase<TProductType>
     where TRouteOperation : RouteOperationBase<TProductType, TUnitState>
-    where TUnitOperation : UnitOperationBase<TProductUnit, TRouteOperation, TProductType, TUnitState>
-    where TOperationResult : OperationResultBase<TUnitOperation, TProductUnit, TRouteOperation, TProductType, TUnitState>
+    where TUnitOperation : UnitOperationBase<TProductType, TUnitState, TProductUnit, TRouteOperation>
+    where TOperationResult : OperationResultBase<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation>
 {
     public DbSet<TUnitState> States { get; set; } = null!;
     public DbSet<TProductType> Types { get; set; } = null!;
