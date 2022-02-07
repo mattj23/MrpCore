@@ -33,7 +33,7 @@ public class MyProductUnit : ProductUnitBase<MyProductType>
     [MaxLength(32)] [Required] public string Serial { get; set; } = null!;
 }
 
-public class MyRouteOp : RouteOperationBase<MyProductType, MyUnitState>
+public class MyRouteOp : RouteOperationBase<MyProductType>
 {
     public string? WorkInstructionUrl { get; set; }
 }

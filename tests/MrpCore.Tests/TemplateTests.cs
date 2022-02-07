@@ -33,11 +33,11 @@ public class TemplateTests
     {
         var context = TestContext0();
 
-        var op0 = context.RouteOperations.Include(o => o.Adds).First(o => o.OpNumber == 10);
-        var op1 = context.RouteOperations.Include(o => o.Removes).First(o => o.OpNumber == 11);
-        
-        Assert.Contains(op0.Adds, s => s.Name == "Scrap");
-        Assert.Contains(op1.Removes, s => s.Name == "Trial");
+        // var op0 = context.RouteOperations.Include(o => o.Adds).First(o => o.OpNumber == 10);
+        // var op1 = context.RouteOperations.Include(o => o.Removes).First(o => o.OpNumber == 11);
+        //
+        // Assert.Contains(op0.Adds, s => s.Name == "Scrap");
+        // Assert.Contains(op1.Removes, s => s.Name == "Trial");
     }
 
     private MyContext TestContext0()
@@ -53,13 +53,13 @@ public class TemplateTests
         var route0 = new MyRouteOp
         {
             OpNumber = 10, ProductTypeId = productType.Id, Description = "Scrap Part",
-            Adds = new [] {state0}
+            // Adds = new [] {state0}
         };
 
         var route1 = new MyRouteOp
         {
             OpNumber = 11, ProductTypeId = productType.Id, Description = "Remove from Trial",
-            Removes = new[] { state1 }
+            // Removes = new[] { state1 }
         };
 
         context.RouteOperations.Add(route0);

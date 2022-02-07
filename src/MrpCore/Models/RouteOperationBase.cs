@@ -18,9 +18,8 @@ public enum RouteOpAdd
     Special
 }
 
-public class RouteOperationBase<TProductType, TUnitState> 
+public class RouteOperationBase<TProductType> 
     where TProductType : ProductTypeBase
-    where TUnitState : UnitStateBase
 {
     [Key] public int Id { get; set; }
     
@@ -37,6 +36,4 @@ public class RouteOperationBase<TProductType, TUnitState>
     public RouteOpOnFailure FailureBehavior { get; set; }
     
     [Required] [MaxLength(128)] public string Description { get; set; } = null!;
-    public ICollection<TUnitState>? Adds { get; set; }
-    public ICollection<TUnitState>? Removes { get; set; }
 }

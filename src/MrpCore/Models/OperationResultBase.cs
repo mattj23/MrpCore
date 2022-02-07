@@ -7,7 +7,7 @@ public class OperationResultBase<TProductType, TUnitState, TProductUnit, TRouteO
     where TUnitState : UnitStateBase
     where TProductType : ProductTypeBase
     where TProductUnit : ProductUnitBase<TProductType>
-    where TRouteOperation : RouteOperationBase<TProductType, TUnitState>
+    where TRouteOperation : RouteOperationBase<TProductType>
     where TUnitOperation : UnitOperationBase<TProductType, TUnitState, TProductUnit, TRouteOperation>
 {
     [Key]

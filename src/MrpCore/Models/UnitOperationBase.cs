@@ -7,7 +7,7 @@ public class UnitOperationBase<TProductType, TUnitState, TProductUnit, TRouteOpe
     where TUnitState : UnitStateBase
     where TProductType : ProductTypeBase
     where TProductUnit : ProductUnitBase<TProductType>
-    where TRouteOperation : RouteOperationBase<TProductType, TUnitState>
+    where TRouteOperation : RouteOperationBase<TProductType>
 {
     [Key]
     public int Id { get; set; }

@@ -16,7 +16,7 @@ public class MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation,
     where TUnitState : UnitStateBase
     where TProductType : ProductTypeBase
     where TProductUnit : ProductUnitBase<TProductType>
-    where TRouteOperation : RouteOperationBase<TProductType, TUnitState>
+    where TRouteOperation : RouteOperationBase<TProductType>
     where TUnitOperation : UnitOperationBase<TProductType, TUnitState, TProductUnit, TRouteOperation>
     where TOperationResult : OperationResultBase<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation>
 {
@@ -26,6 +26,7 @@ public class MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation,
     public DbSet<TRouteOperation> RouteOperations { get; set; } = null!;
     public DbSet<TUnitOperation> UnitOperations { get; set; } = null!;
     public DbSet<TOperationResult> OperationResults { get; set; } = null!;
+    public DbSet<StateRoute<TProductType, TUnitState, TRouteOperation>> StatesToRoutes { get; set; } = null!;
 
     public MesContext(DbContextOptions options) : base(options)
     {
@@ -34,7 +35,10 @@ public class MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation,
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<TRouteOperation>().HasMany(e => e.Adds);
-        modelBuilder.Entity<TRouteOperation>().HasMany(e => e.Removes);
+        modelBuilder.Entity<StateRoute<TProductType, TUnitState, TRouteOperation>>()
+            .HasOne(i => i.RouteOp);
+        
+        modelBuilder.Entity<StateRoute<TProductType, TUnitState, TRouteOperation>>()
+            .HasOne(i => i.State);
     }
 }
