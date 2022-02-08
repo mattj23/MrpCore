@@ -110,4 +110,34 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
 
         return operation.Id;
     }
+    
+    public async Task UpdateRouteOperation(int id, Action<TRouteOperation> modifyAction, TUnitState[] addedStates,
+        TUnitState[] removedStates)
+    {
+        var item = await _db.RouteOperations.FindAsync(id);
+        if (item is null) throw new KeyNotFoundException();
+        
+        modifyAction.Invoke(item);
+        await _db.SaveChangesAsync();
+        
+        var joins = _db.StatesToRoutes.Where(j => j.RouteOperationId == id).ToArray();
+
+        var newJoins = addedStates.Select(s => new StateRoute<TProductType, TUnitState, TRouteOperation>
+        {
+            IsAdd = true, RouteOperationId = item.Id, UnitStateId = s.Id
+        }).Concat(removedStates.Select(s => new StateRoute<TProductType, TUnitState, TRouteOperation>
+        {
+            IsAdd = false, RouteOperationId = item.Id, UnitStateId = s.Id
+        })).ToArray();
+        
+        // Any joins that don't exist that need to exist
+        var toAdd = newJoins.Where(nj => !joins.Any(j => j.UnitStateId == nj.UnitStateId && j.IsAdd == nj.IsAdd))
+            .ToArray();
+        var toRemove = joins.Where(j => !newJoins.Any(nj => j.UnitStateId == nj.UnitStateId && j.IsAdd == nj.IsAdd))
+                                   .ToArray();
+        
+        await _db.StatesToRoutes.AddRangeAsync(toAdd);
+        _db.StatesToRoutes.RemoveRange(toRemove);
+        await _db.SaveChangesAsync();
+    }
 }
