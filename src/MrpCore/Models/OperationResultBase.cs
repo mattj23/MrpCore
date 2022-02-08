@@ -23,7 +23,4 @@ public class OperationResultBase<TProductType, TUnitState, TProductUnit, TRouteO
     
     public DateTime UtcTime { get; set; }
     
-    [MaxLength(512)]
-    public string? Notes { get; set; }
-    
 }

@@ -13,4 +13,14 @@ public static class Extensions
             _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)};
     }
     
+    public static string Description(this RouteOpAdd value)
+    {
+        return value switch {
+            RouteOpAdd.Default => "Required",
+            RouteOpAdd.NotDefault => "Optional",
+            RouteOpAdd.Corrective => "Corrective",
+            RouteOpAdd.Special => "Special",
+            _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)};
+    }
+    
 }

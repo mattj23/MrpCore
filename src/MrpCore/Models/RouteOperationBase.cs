@@ -29,7 +29,11 @@ public class RouteOperationBase<TProductType>
     
     [Required] public int OpNumber { get; set; }
     
-    public int SpecialNumber { get; set; }
+    public int SpecialId { get; set; }
+    
+    public int CorrectiveLimit { get; set; }
+
+    public bool Archived { get; set; } = false;
     
     public RouteOpAdd AddBehavior { get; set; } 
     
