@@ -78,7 +78,7 @@ public class WidgetUnit : ProductUnitBase<WidgetType>
 }
 ```
 
-### Routes and Ordering
+### Master Routes and Ordering
 
 The "master route" is represented by the collection of *Route Operations* attached to a specific *Product Type*. There are different types of *Route Operations* which have different behaviors:
 
@@ -86,38 +86,53 @@ The "master route" is represented by the collection of *Route Operations* attach
 
 * Special route operations: these are special operations which are not part of a standard route, but rather can be added intentionally by a client (human or software) simply to add or remove an attached *Unit State*.  An example of this would be scrapping a unit, which is performed via a special route operation.
 
-* Corrective route operations: a standard route operation can be configured to use one of three different options when a non-passing *Operation Result* occurs.
-    1. Permit retries - the operation can be repeated up to some configurable number of retries
-    2. Trigger special operation - a special operation which terminates the route can be invoked
-    3. Corrective chain - a chain of corrective operations can be added to the route, upon successful completion of which the unit resumes the rest of the route
+* Corrective route operations: these are operations added to the route when an operation pre-configured to launch a corrective set of steps on failure does so
 
 When a new *Product Unit* is created, the standard route operations which are set to be required/default are linked with *Unit Operations*. 
 
 *Route Operations* which are not default can still be added to the *Product Unit*'s route by creating an appropriate *Unit Operation* after the fact. For instance, an inspection step which needs to be performed every fifth part can be set as an optional step, and then the client code can add it on appropriate units when they're created.
 
-At any given time, the set of operations which a particular *Product Unit* needs to complete successfully are only the ones which have been added via the creation of an associating *Unit Operation*.  The order of these operations is determined by the op number of the referencing *Route Operation* for each *Unit Operation*.
+At any given time, the set of operations which a particular *Product Unit* needs to complete successfully are only the ones which have been added via the creation of an associating *Unit Operation*.  The order of these operations is determined by the op number of the referencing *Route Operation* for each *Unit Operation*. 
 
-### Route Changes
+#### Failures on Route Operations
+
+Any standard route operation can be configured to use one of four different options when a non-passing *Operation Result* occurs.
+
+1. **Permit retries** - the operation can be repeated indefinitely until it passes
+2. **Corrective chain, then retry** - a chain of pre-configured corrective operations is added to the route, upon successful completion of which the unit returns to the failing step to retry it
+3. **Corrective chain, then proceed** - a chain of pre-configured corrective operations is added to the route, upon successful completion of which the unit proceeds to the next operation after the failing operation
+4. **Trigger special operation** - a special operation which terminates the route can be invoked
+
+In addition, any route operation can be configured to automatically invoke a special operation on failure.  This allows for explicit states to be added on failure.
+
+Route operations which are part of a corrective chain are not allowed to invoke their own corrective chains. Their failure behavior must either permit retries or terminate the route with a special operation.
+
+#### Route Changes
 
 Once a *Unit Operation* has been created (linking a *Product Unit* to a *Route Operation*), changes to the underlying *Route Operation* will have consequences that go beyond just the *Route Operation* object.
 
-Any change which changes the behavior of the operation or the route means that the history of a *Product Unit* referencing the route in the past can no longer be calculated from the information available in the historical record. 
+In order to prevent corruption to the historical data in the MES, it is important to not make modifications to a *Route Operation* once that operation has been referenced by an actual *Product Unit*.  The `MesManager` will explicitly prevent such modifications from taking place, though they can still be done through the raw database context.
 
-* Changes to the *Unit States* which are added or removed by the *Route Operation*
-* Changes to the op number which **change the order** that operations existing are performed in
-* Changes to the failure behavior for an operation
+Instead of allowing changes to existing *Route Operations* once they have been referenced, *MrpCore* adopts a strategy of versioning.  Once referenced a *Route Operation* becomes immutable, but operations can be created and deactivated without affecting *Product Unit*s which have already had their individual routes generated.
 
-Changes which do not affect the calculation of the route, and thus do not change the interpretation of the historical record:
+There are two ways to deactivate a *Route Operation*.  One is to set the `Archived` property on the route operation, which effectively turns it off.  The other is to create a newer version of the *Route Operation*, which implicitly deactivates all older versions.
 
-* Changes to the op number which **do not change the order** that existing operations are performed in
-* Changes to how the *Route Operation* is added (default vs optional)
-* Archiving/deactivating old *Route Operation*s that are being removed from the route
-* Adding new *Route Operation*s to the route
-* Superficial changes, such as changing the description of the operation
+Versioning of *Route Operations* is tracked through three integer properties in the `RouteOperationBase` class.
+
+* `Id` - this is the single, unique ID for the *Route Operation* object, it is generated by EF Core and/or the storage provider when it is created. This number always references a single, individual *Route Operation*.
+* `RootId` - this value is set by the `MesManager` to reference the `Id` of the original (root) version of a *Route Operation*.  When a new operation is created, the `Id` and the `RootId` will have the same value. When that operation is revised, a new *Route Operation* is created with its own unique `Id`, but the `RootId` value will remain the same.  Finding all versions of a *Route Operation* simply involves querying all entities with the same `RootId`.
+* `RootVersion` - this is an ordinal value which increments as new versions of the *Route Operation* are created. The largest value in a set of operations with the same `RootId` is the active version, and all smaller values are implicitly deactivated as if they had the `Archived` property set.
 
 
+### Product Unit Routes
 
+In contrast with the "master route" which defines the template route for all items of a particular *Product Type*, a single *Product Unit* moving through production has its own unique route, made of the combination of all *Unit Operations* linked to it.  Because each *Unit Operation* is just a reference to a *Route Operation*, they store no real data internally.
 
+In addition to the collection of *Unit Operation*s, a *Product Unit* also has a collection of *Operation Results* which are timestamped attempts to complete the *Unit Operation*, and thus the referenced *Route Operation*.  
 
+At any given time the current status of a *Product Unit* should be calculable from the combination of *Unit Operation*s and *Operation Result*s. This includes:
 
-
+1. Whether or not the unit is complete
+2. If it's not complete, what is the next operation that needs to be performed
+3. Was the last operation result (if there was one) successful or not?
+4. Are there any explicit states which are currently attached to the unit?

@@ -40,7 +40,7 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
     where TProductType : ProductTypeBase
     where TProductUnit : ProductUnitBase<TProductType>
     where TRouteOperation : RouteOperationBase<TProductType>
-    where TUnitOperation : UnitOperationBase<TProductType, TUnitState, TProductUnit, TRouteOperation>, new()
+    where TUnitOperation : UnitOperationBase<TProductType, TProductUnit, TRouteOperation>, new()
     where TOperationResult : OperationResultBase<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation>
 {
     private readonly int _unitId;

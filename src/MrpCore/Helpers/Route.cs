@@ -82,7 +82,7 @@ public class Route<TProductType, TUnitState, TRouteOperation>
     public IReadOnlyCollection<RouteOpAndStates<TProductType, TUnitState, TRouteOperation>> Corrective(int id)
     {
         return _allOperations.Values.Where(o =>
-            o.Operation.AddBehavior is RouteOpAdd.Corrective && o.Operation.SpecialId == id)
+            o.Operation.AddBehavior is RouteOpAdd.Corrective && o.Operation.CorrectiveId == id)
             .OrderBy(o => o.Operation.OpNumber)
             .ToArray();
     }

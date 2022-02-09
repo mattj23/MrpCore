@@ -4,12 +4,13 @@ namespace MrpCore;
 
 public static class Extensions
 {
-    public static string Description(this RouteOpOnFailure value)
+    public static string Description(this RouteOpFailure value)
     {
         return value switch {
-            RouteOpOnFailure.Retry => "Permit Retry",
-            RouteOpOnFailure.Corrective => "Corrective Operations",
-            RouteOpOnFailure.Special => "Trigger Special",
+            RouteOpFailure.Retry => "Permit Retry",
+            RouteOpFailure.CorrectiveReturn => "Corrective Operations, then Retry",
+            RouteOpFailure.CorrectiveProceed => "Corrective Operations, then Proceed",
+            RouteOpFailure.TerminateWithSpecial => "Trigger Terminating Special",
             _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)};
     }
     
