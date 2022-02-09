@@ -136,3 +136,46 @@ At any given time the current status of a *Product Unit* should be calculable fr
 2. If it's not complete, what is the next operation that needs to be performed
 3. Was the last operation result (if there was one) successful or not?
 4. Are there any explicit states which are currently attached to the unit?
+
+#### Current Status Algorithm
+
+The following is the algorithm that *MrpCore* uses to determine the current status of a *Product Unit*.  
+
+1. The collection of *Route Operation*s referenced by the *Product Unit*'s total list of *Unit Operation*s is retrieved.
+2. All **standard route operations** in this collection are sorted by their `OpNumber`. 
+3. We locate the first *Operation Result* (by timestamp).  If there are none, the *Product Unit* has not yet been started, and the next operation is the first one in the list of **standard route operations**.
+4. If the *Operation Result* was a success, we examine the referenced *Route Operation*, then add and remove any *Unit States* specified by the operation to the bin
+5. If the bin contains any *Unit State*s which have the `TerminatesRoute` flag set, the *Product Unit*'s route terminates and nothing further is done and no new operations can be performed.
+6. We locate the next *Operation Result* by timestamp.  If we find one we return to Step 4.  If we don't, we exit.
+
+The "last operation" is the *Unit Operation*/*Route Operation* associated with the last *Operation Result* that wasn't on a special operation.
+
+If we reached this point because of a terminal unit state, we consider the *Product Unit* terminated but not complete, and there is no next operation.
+
+Otherwise, we examine the last *Operation Result* performed on a non-special *Route Operation*.
+
+1. If that last result was successful, we determine the context of the *Route Operation*:
+    1. If it is a standard route operation, the next operation is the standard route operation with the minimum `OpNumber` higher than the current *Route Operation*
+    2. If it is a corrective route operation, the next operation is determined by the following:
+        * If there is another corrective operation attached to the same standard route operation with an `OpNumber` higher than the current operation, that one becomes the next operation
+        * If there are no more corrective operations attached to the same standard route operation, we examine whether this *Route Operation* had the property to retry the failed step or to advance to the next step.  If it advances to the next step, the next operation is the standard route operation with the minimum `OpNumber` higher than the parent standard route operation of the corrective step.  If it retries the failed step, the next operation is the parent standard route operation of the corrective step.
+2. If the last result was a failure, we examine the failure behavior of the *Route Operation*
+    1. If the *Route Operation* permits retries, the next operation is the current one
+    2. If the *Route Operation* enters a corrective chain, the next operation is the one with the smallest `OpNumber` whose `CorrectiveId` matches the current *Route Operation*'s `RootId`.
+
+If there is no next operation, then all operations are considered complete.  If the bin contains no *Unit States* which have the `BlocksCompletion` flag set, the *Product Unit* has a complete status.
+
+Otherwise the next operation which must be performed is the one found by the above process.
+
+#### Setting Operation Results
+
+An *Operation Result* can only be added for the operation considered to be the "next operation" by the status algorithm described above. The only exception to this are special operations, which get the *Unit Operation* and the *Unit Result* added at once, but do not have a concept of order in relation to other non-special operations.
+
+When an *Operation Result* is added, the conceptual state of the *Product Unit*'s route has changed.  If the state of the *Operation Result* was that it succeeded/passed, the result can simply be added and the current status algorithm re-run to determine the new status and the new next operation.
+
+However, if the *Operation Result* was not a success, after the result is added the route will have to be updated by the `MesManager`.
+
+1. If there is a value in the `SpecialFailId` property of the associated *Route Operation*, the special operation referenced is located and a corresponding *Unit Operation* (if it does not already exist) and *Operation Result* is added.  If that operation adds a state which has the `TerminatesRoute` flag set, the update process is finished as the *Product Unit*'s route has terminated.
+2. If the failure behavior of the associated *Route Operation* is to permit retries, the update process has finished and the current status can be recomputed
+3. If the failure behavior of the associated *Route Operation* is to enter a corrective chain, the corrective chain of the failing *Route Operation* must be loaded and the matching *Unit Operation*s created to add them to the route.
+

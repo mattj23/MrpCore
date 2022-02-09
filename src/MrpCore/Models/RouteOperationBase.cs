@@ -58,7 +58,7 @@ public class RouteOperationBase<TProductType>
     /// <summary>
     /// Gets the RootId of the special route operation which is invoked if this part fails.
     /// </summary>
-    public int SpecialFailId { get; set; }
+    public int? SpecialFailId { get; set; }
 
     /// <summary>
     /// Gets or sets a flag which determines if this route operation is not active.  Route operations cannot be deleted
