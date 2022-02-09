@@ -3,8 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MrpCore.Models;
 
-public class UnitOperationBase<TProductType, TUnitState, TProductUnit, TRouteOperation>
-    where TUnitState : UnitStateBase
+public class UnitOperationBase<TProductType, TProductUnit, TRouteOperation>
     where TProductType : ProductTypeBase
     where TProductUnit : ProductUnitBase<TProductType>
     where TRouteOperation : RouteOperationBase<TProductType>

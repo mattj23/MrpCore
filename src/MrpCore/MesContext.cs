@@ -17,7 +17,7 @@ public class MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation,
     where TProductType : ProductTypeBase
     where TProductUnit : ProductUnitBase<TProductType>
     where TRouteOperation : RouteOperationBase<TProductType>
-    where TUnitOperation : UnitOperationBase<TProductType, TUnitState, TProductUnit, TRouteOperation>
+    where TUnitOperation : UnitOperationBase<TProductType, TProductUnit, TRouteOperation>
     where TOperationResult : OperationResultBase<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation>
 {
     public DbSet<TUnitState> States { get; set; } = null!;

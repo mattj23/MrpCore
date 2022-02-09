@@ -21,5 +21,5 @@ public class ProductUnitBase<TProductType> where TProductType : ProductTypeBase
     /// during operations concerning WIP or active inventory. They still exist in the database and are queried during
     /// operations which examine historical records.
     /// </summary>
-    public bool IsArchived { get; set; }
+    public bool Archived { get; set; }
 }

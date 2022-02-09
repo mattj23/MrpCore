@@ -16,4 +16,6 @@ public class UnitStateBase
     
     public bool BlocksCompletion { get; set; }
     
+    public bool TerminatesRoute { get; set; }
+    
 }
