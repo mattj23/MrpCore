@@ -13,14 +13,12 @@ The motivation for *MrpCore* is the idea of a new generation of narrowly-scoped,
 
 *MrpCore* is an attempt to build a flexible core component that aids anyone experimenting with this concept of small, bespoke, targeted systems, by providing the minimal set of common functions while staying well out of the way of everything else.  It is antithetical to the philosophy of the current generation of systems, in which the user needs to bend their operational model to fit into the software.
 
-## Core Concepts
 
-### Manufacturing Execution System (MES)
+## Manufacturing Execution System (MES)
 
 A Manufacturing Execution System is effectively a replacement for the paper travelers that followed goods being produced through the production process.  It tracks what has been done and what needs to be done, and where each product is in the process as well as any relevant information or status associated with the product.
 
-
-#### MES Core Concepts and Representation
+### MES Core Concepts and Representation
 The core concepts of a MES are:
 
 1. The *product*, *item*, *good*, *workpiece*, etc. This is a single **unit** of finished product which is output from a manufacturing process.  Within *MrpCore* the base class which represents this concept is the `ProductUnitBase`.
@@ -33,8 +31,7 @@ The core concepts of a MES are:
 
 5. The *result* of an operation.  This is what is recorded when an operation is performed and either passes or fails. It is recorded at a certain time, and references a specific operation which was on the physical product unit's route.  *MrpCore* represents this concept with the base class `OperationResultBase`.
 
-
-#### MES Base Class Relations
+### MES Base Class Relations
 
 The MES base classes have particular relations between each other, such that defining the database context for EFCore requires type arguments to specify them all at once.  The types themselves are allowed to be any custom class which inherits from the appropriate base class.
 
@@ -50,7 +47,7 @@ The MES base classes have particular relations between each other, such that def
 
 * Lastly, a *Unit State* is a class which inherits from `UnitStateBase`.  This has no explicit relations with other classes, and in many cases may be suitable to use as-is without extension.  A *Unit State* represents an explicit state attached to a *Product Unit* at a specific stage in its process. *Unit States* can be thought of as tags attached and removed by completed *Unit Operations*.  They possess a name, a description, and two boolean flags: one which determines whether the presence of the state blocks the unit from being considered complete even if all of the operations are finished successfully, and one which determines whether the presence of the state terminates the unit's route (such as scrapping the unit).
 
-#### EF Core and Type Arguments
+### EF Core and Type Arguments
 
 The use of the type arguments in the template classes as shown above means that custom classes can be used to extend the base class features while still allowing a type-consistent set of tools that can handle extended classes and take and return the proper types.
 
@@ -58,7 +55,7 @@ However, with Entity Framework Core, this produces a challenge for navigation pr
 
 To get around this, some navigation properties have been excluded, and the `MesManager<...>` class has been written to retrieve these relations manually.
 
-#### Typical Base Class Extensions
+### Typical Base Class Extensions
 
 The MES base classes represent the minimal features necessary to perform MES operations according to *MrpCore*'s operational model.  Anything which goes beyond this should be extended by inheriting from the base classes.  Some typical extension features might be:
 
@@ -81,7 +78,7 @@ public class WidgetUnit : ProductUnitBase<WidgetType>
 }
 ```
 
-#### Routes and Ordering
+### Routes and Ordering
 
 The "master route" is represented by the collection of *Route Operations* attached to a specific *Product Type*. There are different types of *Route Operations* which have different behaviors:
 
@@ -100,9 +97,23 @@ When a new *Product Unit* is created, the standard route operations which are se
 
 At any given time, the set of operations which a particular *Product Unit* needs to complete successfully are only the ones which have been added via the creation of an associating *Unit Operation*.  The order of these operations is determined by the op number of the referencing *Route Operation* for each *Unit Operation*.
 
-#### Route Changes
+### Route Changes
 
+Once a *Unit Operation* has been created (linking a *Product Unit* to a *Route Operation*), changes to the underlying *Route Operation* will have consequences that go beyond just the *Route Operation* object.
 
+Any change which changes the behavior of the operation or the route means that the history of a *Product Unit* referencing the route in the past can no longer be calculated from the information available in the historical record. 
+
+* Changes to the *Unit States* which are added or removed by the *Route Operation*
+* Changes to the op number which **change the order** that operations existing are performed in
+* Changes to the failure behavior for an operation
+
+Changes which do not affect the calculation of the route, and thus do not change the interpretation of the historical record:
+
+* Changes to the op number which **do not change the order** that existing operations are performed in
+* Changes to how the *Route Operation* is added (default vs optional)
+* Archiving/deactivating old *Route Operation*s that are being removed from the route
+* Adding new *Route Operation*s to the route
+* Superficial changes, such as changing the description of the operation
 
 
 
