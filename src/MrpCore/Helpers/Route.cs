@@ -18,6 +18,7 @@ public class Route<TProductType, TUnitState, TRouteOperation>
     where TRouteOperation : RouteOperationBase<TProductType>
 {
     private readonly Dictionary<int, RouteOpAndStates<TProductType, TUnitState, TRouteOperation>> _allOperations;
+    private readonly Dictionary<int, RouteOpAndStates<TProductType, TUnitState, TRouteOperation>> _activeOperations;
     private readonly RouteOpAndStates<TProductType, TUnitState, TRouteOperation>[] _special;
     private readonly RouteOpAndStates<TProductType, TUnitState, TRouteOperation>[] _standard;
     private readonly TRouteOperation[] _default;
@@ -32,18 +33,29 @@ public class Route<TProductType, TUnitState, TRouteOperation>
                 "A Route object must be initialized with all operations from the same part type id");
         }
         
+        // Sort all Route Operations into a dictionary by their ID
         _allOperations = allOperations.ToDictionary(o => o.Op.Id, o => o);
-        _special = _allOperations.Values
+        
+        // Get the active versions of all operations
+        var rootIds = allOperations.Select(o => o.Op.RootId).ToHashSet();
+        _activeOperations = new Dictionary<int, RouteOpAndStates<TProductType, TUnitState, TRouteOperation>>();
+        foreach (var id in rootIds)
+        {
+            var latest = allOperations.Where(o => o.Op.RootId == id).MaxBy(o => o.Op.RootVersion);
+            if (!latest!.Op.Archived) _activeOperations.Add(id, latest);
+        }
+        
+        _special = _activeOperations.Values
             .Where(o => o.Op.AddBehavior is RouteOpAdd.Special)
             .ToArray();
         
-        _standard = _allOperations.Values
+        _standard = _activeOperations.Values
             .Where(o => o.Op.AddBehavior is RouteOpAdd.NotDefault or RouteOpAdd.Default)
             .OrderBy(o => o.Op.OpNumber)
             .ToArray();
 
-        _default = _standard.Select(o => o.Op)
-            .Where(o => o.AddBehavior is RouteOpAdd.Default && !o.Archived)
+        _default = _activeOperations.Values.Select(o => o.Op)
+            .Where(o => o.AddBehavior is RouteOpAdd.Default)
             .ToArray();
     }
 
@@ -53,9 +65,14 @@ public class Route<TProductType, TUnitState, TRouteOperation>
     public int ProductTypeId { get; }
     
     /// <summary>
-    /// Gets a dictionary by which any operation can be accessed by its id.
+    /// Gets a dictionary by which any operation can be accessed by its id, including archived and old versions.
     /// </summary>
-    public IReadOnlyDictionary<int, RouteOpAndStates<TProductType, TUnitState, TRouteOperation>> ById=> _allOperations;
+    public IReadOnlyDictionary<int, RouteOpAndStates<TProductType, TUnitState, TRouteOperation>> AllById=> _allOperations;
+    
+    /// <summary>
+    /// Gets a dictionary by which any active operation can be accessed by its RootId.
+    /// </summary>
+    public IReadOnlyDictionary<int, RouteOpAndStates<TProductType, TUnitState, TRouteOperation>> ActiveById=> _activeOperations;
     
     /// <summary>
     /// Gets a collection of all of the special operations in this route
@@ -74,15 +91,15 @@ public class Route<TProductType, TUnitState, TRouteOperation>
     public IReadOnlyCollection<TRouteOperation> DefaultOperations => _default;
 
     /// <summary>
-    /// Retrieves a collection of any corrective operations associated with the ID of another operation, ordered by
+    /// Retrieves a collection of any corrective operations associated with the RootId of another operation, ordered by
     /// their sub operation number
     /// </summary>
-    /// <param name="id"></param>
+    /// <param name="rootId"></param>
     /// <returns></returns>
-    public IReadOnlyCollection<RouteOpAndStates<TProductType, TUnitState, TRouteOperation>> Corrective(int id)
+    public IReadOnlyCollection<RouteOpAndStates<TProductType, TUnitState, TRouteOperation>> Corrective(int rootId)
     {
-        return _allOperations.Values.Where(o =>
-            o.Op.AddBehavior is RouteOpAdd.Corrective && o.Op.CorrectiveId == id)
+        return _activeOperations.Values.Where(o =>
+            o.Op.AddBehavior is RouteOpAdd.Corrective && o.Op.CorrectiveId == rootId)
             .OrderBy(o => o.Op.OpNumber)
             .ToArray();
     }
@@ -99,7 +116,7 @@ public class Route<TProductType, TUnitState, TRouteOperation>
         foreach (var op in _standard)
         {
             result.Add(op);
-            result.AddRange(Corrective(op.Op.Id));
+            result.AddRange(Corrective(op.Op.RootId));
         }
 
         return result;
