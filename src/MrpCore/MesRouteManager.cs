@@ -71,7 +71,12 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
 
         return operation.Id;
     }
-    
+
+    public async Task<int> AddCorrectiveOp(TRouteOperation operation, int parentId, OpStateChanges<TUnitState> states)
+    {
+        
+    }
+
     /// <summary>
     /// Modifies a Route Operation by fetching it from the data store and invoking an Action on it. The operation will
     /// throw an exception if the Route Operation is already referenced. Use IsOpLocked(id) to determine ahead of time
@@ -273,6 +278,24 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         }
 
         return new Route<TProductType, TUnitState, TRouteOperation>(productTypeId, results.ToArray());
+    }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="routeOpId"></param>
+    /// <param name="states"></param>
+    /// <returns></returns>
+    private StateRoute<TProductType, TUnitState, TRouteOperation>[] GetJoins(int routeOpId,
+        OpStateChanges<TUnitState> states)
+    {
+        return states.Adds.Select(s => new StateRoute<TProductType, TUnitState, TRouteOperation>
+        {
+            IsAdd = true, RouteOperationId = routeOpId, UnitStateId = s.Id
+        }).Concat(states.Removes.Select(s => new StateRoute<TProductType, TUnitState, TRouteOperation>
+        {
+            IsAdd = false, RouteOperationId = routeOpId, UnitStateId = s.Id
+        })).ToArray();
     }
 
 }

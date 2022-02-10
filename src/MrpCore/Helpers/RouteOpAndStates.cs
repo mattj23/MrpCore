@@ -7,15 +7,12 @@ public class RouteOpAndStates<TProductType, TUnitState, TRouteOperation>
     where TProductType : ProductTypeBase
     where TRouteOperation : RouteOperationBase<TProductType>
 {
-    public RouteOpAndStates(TRouteOperation operation, TUnitState[] adds, TUnitState[] removes)
+    public RouteOpAndStates(TRouteOperation operation, OpStateChanges<TUnitState> states)
     {
-        Operation = operation;
-        Adds = adds;
-        Removes = removes;
+        Op = operation;
+        States = states;
     }
 
-    public TRouteOperation Operation { get; }
-    public TUnitState[] Adds { get; }
-    public TUnitState[] Removes { get; set; }
-
+    public TRouteOperation Op { get; }
+    public OpStateChanges<TUnitState> States { get; }
 }
