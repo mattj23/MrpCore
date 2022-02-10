@@ -41,40 +41,57 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     {
         return _db.UnitOperations.AnyAsync(o => o.RouteOperationId == routeOperationId);
     }
-    
+
     /// <summary>
     /// Add a new Route Operation to the data store. This will automatically set the RootId and RootVersion. Do not
     /// use this method to add an already existing operation.
     /// </summary>
     /// <param name="operation">A new TRouteOperation to be added to the data store</param>
-    /// <param name="addedStates">An array of TUnitStates which this operation adds to a unit on success</param>
-    /// <param name="removedStates">An array of TUnitStates which this operation removes from a unit on success</param>
+    /// <param name="stateChanges"></param>
     /// <returns>The integer ID of the new added operation</returns>
-    public async Task<int> AddOp(TRouteOperation operation, TUnitState[] addedStates, TUnitState[] removedStates)
+    public async Task<int> AddOp(TRouteOperation operation, OpStateChanges<TUnitState> stateChanges)
     {
+        operation.Id = 0;
+        operation.ThrowIfInvalid();
+        
         await _db.RouteOperations.AddAsync(operation);
         await _db.SaveChangesAsync();
 
         operation.RootId = operation.Id;
         operation.RootVersion = 0;
-        
-        var addJoins = addedStates.Select(s => new StateRoute<TProductType, TUnitState, TRouteOperation>
-        {
-            IsAdd = true, RouteOperationId = operation.Id, UnitStateId = s.Id
-        });
-        var removeJoins = removedStates.Select(s => new StateRoute<TProductType, TUnitState, TRouteOperation>
-        {
-            IsAdd = false, RouteOperationId = operation.Id, UnitStateId = s.Id
-        });
-        await _db.StatesToRoutes.AddRangeAsync(addJoins.Concat(removeJoins));
+
+        var joins = GetJoins(operation.Id, stateChanges);
+        await _db.StatesToRoutes.AddRangeAsync(joins);
         await _db.SaveChangesAsync();
 
         return operation.Id;
     }
 
+    /// <summary>
+    /// Adds a new corrective operation to a parent route operation with corrective failure behavior. Handles the
+    /// setting of the internal `CorrectiveId` and `AddBehavior`.
+    /// </summary>
+    /// <param name="operation"></param>
+    /// <param name="parentId"></param>
+    /// <param name="states"></param>
+    /// <returns></returns>
+    /// <exception cref="KeyNotFoundException"></exception>
+    /// <exception cref="InvalidOperationException"></exception>
     public async Task<int> AddCorrectiveOp(TRouteOperation operation, int parentId, OpStateChanges<TUnitState> states)
     {
+        // Check for a valid parent
+        var parent = await _db.RouteOperations.FindAsync(parentId);
+        if (parent is null) throw new KeyNotFoundException();
+        if (parent.FailureBehavior is not (RouteOpFailure.CorrectiveProceed or RouteOpFailure.CorrectiveReturn))
+        {
+            throw new InvalidOperationException(
+                "A corrective operation must be added to a parent with corrective failure behavior");
+        }
         
+        operation.CorrectiveId = parent.RootId;
+        operation.AddBehavior = RouteOpAdd.Corrective;
+
+        return await AddOp(operation, states);
     }
 
     /// <summary>
@@ -85,12 +102,10 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     /// </summary>
     /// <param name="id">The integer ID of the route operation to edit</param>
     /// <param name="modifyAction">An Action which modifies the route operation in some way</param>
-    /// <param name="addedStates">A list of unit states which the operation will add to the unit on success</param>
-    /// <param name="removedStates">A list of unit states which the operation will remove from the unit on success</param>
+    /// <param name="stateChanges"></param>
     /// <exception cref="InvalidOperationException">Thrown if the Route Operation is already referenced by a product unit</exception>
     /// <exception cref="KeyNotFoundException">Thrown if the operation ID cannot be found</exception>
-    public async Task UpdateOp(int id, Action<TRouteOperation> modifyAction, TUnitState[] addedStates,
-        TUnitState[] removedStates)
+    public async Task UpdateOp(int id, Action<TRouteOperation> modifyAction, OpStateChanges<TUnitState> stateChanges)
     {
         if (!await IsOpLocked(id))
             throw new InvalidOperationException(
@@ -100,17 +115,11 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         if (item is null) throw new KeyNotFoundException();
         
         modifyAction.Invoke(item);
+        item.ThrowIfInvalid();
         await _db.SaveChangesAsync();
         
         var joins = _db.StatesToRoutes.Where(j => j.RouteOperationId == id).ToArray();
-
-        var newJoins = addedStates.Select(s => new StateRoute<TProductType, TUnitState, TRouteOperation>
-        {
-            IsAdd = true, RouteOperationId = item.Id, UnitStateId = s.Id
-        }).Concat(removedStates.Select(s => new StateRoute<TProductType, TUnitState, TRouteOperation>
-        {
-            IsAdd = false, RouteOperationId = item.Id, UnitStateId = s.Id
-        })).ToArray();
+        var newJoins = GetJoins(id, stateChanges);
         
         // Any joins that don't exist that need to exist
         var toAdd = newJoins.Where(nj => !joins.Any(j => j.UnitStateId == nj.UnitStateId && j.IsAdd == nj.IsAdd))
@@ -130,12 +139,11 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     /// </summary>
     /// <param name="id">The integer ID of the route operation to update</param>
     /// <param name="modifyAction">An Action which modifies the route operation in some way</param>
-    /// <param name="addedStates">A list of unit states which the operation will add to the unit on success</param>
-    /// <param name="removedStates">A list of unit states which the operation will remove from the unit on success</param>
+    /// <param name="stateChanges"></param>
     /// <returns>the ID of the newly added route operation</returns>
     /// <exception cref="KeyNotFoundException">Thrown if the id cannot be found</exception>
-    public async Task<int> IncrementOpVersion(int id, Action<TRouteOperation> modifyAction, TUnitState[] addedStates,
-                                                      TUnitState[] removedStates)
+    public async Task<int> IncrementOpVersion(int id, Action<TRouteOperation> modifyAction, 
+        OpStateChanges<TUnitState> stateChanges)
     {
         var item = await _db.RouteOperations.AsNoTracking().FirstOrDefaultAsync(o => o.Id == id);
         if (item is null) throw new KeyNotFoundException();
@@ -146,16 +154,11 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         item.Id = 0;
         item.RootId = root;
         item.RootVersion = version;
+        item.ThrowIfInvalid();
         await _db.AddAsync(item);
         await _db.SaveChangesAsync();
 
-        var newJoins = addedStates.Select(s => new StateRoute<TProductType, TUnitState, TRouteOperation>
-        {
-            IsAdd = true, RouteOperationId = item.Id, UnitStateId = s.Id
-        }).Concat(removedStates.Select(s => new StateRoute<TProductType, TUnitState, TRouteOperation>
-        {
-            IsAdd = false, RouteOperationId = item.Id, UnitStateId = s.Id
-        })).ToArray();
+        var newJoins = GetJoins(item.Id, stateChanges);
         await _db.StatesToRoutes.AddRangeAsync(newJoins);
         await _db.SaveChangesAsync();
 
@@ -168,18 +171,17 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     /// </summary>
     /// <param name="id">The integer ID of the route operation to update</param>
     /// <param name="modifyAction">An Action which modifies the route operation in some way</param>
-    /// <param name="addedStates">A list of unit states which the operation will add to the unit on success</param>
-    /// <param name="removedStates">A list of unit states which the operation will remove from the unit on success</param>
+    /// <param name="stateChanges"></param>
     /// <returns>the ID of the route operation, will be the same as id if it was updated in place</returns>
-    public async Task<int> UpdateOrIncrement(int id, Action<TRouteOperation> modifyAction, TUnitState[] addedStates,
-        TUnitState[] removedStates)
+    public async Task<int> UpdateOrIncrement(int id, Action<TRouteOperation> modifyAction, 
+        OpStateChanges<TUnitState> stateChanges)
     {
         if (!await IsOpLocked(id))
         {
-            return await IncrementOpVersion(id, modifyAction, addedStates, removedStates);
+            return await IncrementOpVersion(id, modifyAction, stateChanges);
         }
 
-        await UpdateOp(id, modifyAction, addedStates, removedStates);
+        await UpdateOp(id, modifyAction, stateChanges);
         return id;
     }
 
@@ -274,7 +276,8 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
                     removes.Add(states[opJoin.UnitStateId]);
             }
 
-            results.Add(new RouteOpAndStates<TProductType, TUnitState, TRouteOperation>(op, adds.ToArray(), removes.ToArray()));
+            var stateChanges = new OpStateChanges<TUnitState>(adds, removes);
+            results.Add(new RouteOpAndStates<TProductType, TUnitState, TRouteOperation>(op, stateChanges));
         }
 
         return new Route<TProductType, TUnitState, TRouteOperation>(productTypeId, results.ToArray());

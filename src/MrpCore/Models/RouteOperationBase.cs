@@ -71,6 +71,19 @@ public class RouteOperationBase<TProductType>
     public RouteOpFailure FailureBehavior { get; set; }
     
     [Required] [MaxLength(128)] public string Description { get; set; } = null!;
+
+    /// <summary>
+    /// Throws a ValidationException if there is something invalid about the operation.
+    /// </summary>
+    /// <exception cref="ValidationException">Thrown with a message describing any misconfiguration</exception>
+    public void ThrowIfInvalid()
+    {
+        if (AddBehavior is RouteOpAdd.Corrective &&
+            FailureBehavior is RouteOpFailure.CorrectiveProceed or RouteOpFailure.CorrectiveReturn)
+        {
+            throw new ValidationException("A corrective operation cannot have corrective failure behavior");
+        }
+    }
 }
 
 public enum RouteOpFailure

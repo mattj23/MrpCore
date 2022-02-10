@@ -26,23 +26,23 @@ public class Route<TProductType, TUnitState, TRouteOperation>
     {
         ProductTypeId = productTypeId;
 
-        if (allOperations.Any(o => o.Operation.ProductTypeId != ProductTypeId))
+        if (allOperations.Any(o => o.Op.ProductTypeId != ProductTypeId))
         {
             throw new InvalidDataException(
                 "A Route object must be initialized with all operations from the same part type id");
         }
         
-        _allOperations = allOperations.ToDictionary(o => o.Operation.Id, o => o);
+        _allOperations = allOperations.ToDictionary(o => o.Op.Id, o => o);
         _special = _allOperations.Values
-            .Where(o => o.Operation.AddBehavior is RouteOpAdd.Special)
+            .Where(o => o.Op.AddBehavior is RouteOpAdd.Special)
             .ToArray();
         
         _standard = _allOperations.Values
-            .Where(o => o.Operation.AddBehavior is RouteOpAdd.NotDefault or RouteOpAdd.Default)
-            .OrderBy(o => o.Operation.OpNumber)
+            .Where(o => o.Op.AddBehavior is RouteOpAdd.NotDefault or RouteOpAdd.Default)
+            .OrderBy(o => o.Op.OpNumber)
             .ToArray();
 
-        _default = _standard.Select(o => o.Operation)
+        _default = _standard.Select(o => o.Op)
             .Where(o => o.AddBehavior is RouteOpAdd.Default && !o.Archived)
             .ToArray();
     }
@@ -82,8 +82,8 @@ public class Route<TProductType, TUnitState, TRouteOperation>
     public IReadOnlyCollection<RouteOpAndStates<TProductType, TUnitState, TRouteOperation>> Corrective(int id)
     {
         return _allOperations.Values.Where(o =>
-            o.Operation.AddBehavior is RouteOpAdd.Corrective && o.Operation.CorrectiveId == id)
-            .OrderBy(o => o.Operation.OpNumber)
+            o.Op.AddBehavior is RouteOpAdd.Corrective && o.Op.CorrectiveId == id)
+            .OrderBy(o => o.Op.OpNumber)
             .ToArray();
     }
 
@@ -99,7 +99,7 @@ public class Route<TProductType, TUnitState, TRouteOperation>
         foreach (var op in _standard)
         {
             result.Add(op);
-            result.AddRange(Corrective(op.Operation.Id));
+            result.AddRange(Corrective(op.Op.Id));
         }
 
         return result;
