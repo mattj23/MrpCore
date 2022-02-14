@@ -22,10 +22,19 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
         RouteManager =
             new MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation,
                 TOperationResult>(_db);
+        
+        UnitManager =
+            new MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation,
+                TOperationResult>(_db, RouteManager);
+
     }
 
     public MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult>
         RouteManager { get; }
+    
+    public MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult>
+        UnitManager { get; }
+    
     
     public IQueryable<TProductType> ProductTypes => _db.Types;
     public ValueTask<TProductType?> ProductTypeById(int id) => _db.Types.FindAsync(id);
@@ -47,42 +56,4 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
         return newItem.Id;
     }
 
-    /// <summary>
-    /// Adds a new product unit and creates its unit route from the product type's master route
-    /// </summary>
-    /// <param name="newUnit"></param>
-    /// <param name="modifyOperations"></param>
-    public async Task AddUnit(TProductUnit newUnit, Action<TUnitOperation[]>? modifyOperations)
-    {
-        await _db.Units.AddAsync(newUnit);
-        await _db.SaveChangesAsync();
-        
-        var route = await this.RouteManager.GetRoute(newUnit.ProductTypeId);
-        var operations = route.DefaultOperations.Select(o => new TUnitOperation
-        {
-            ProductUnitId = newUnit.Id,
-            RouteOperationId = o.Id
-        }).ToArray();
-
-        modifyOperations?.Invoke(operations);
-        await _db.UnitOperations.AddRangeAsync(operations);
-        await _db.SaveChangesAsync();
-    }
-
-    public async
-    Task<UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult>>
-    GetUnitRoute(int unitId)
-    {
-        var unitOps = await _db.UnitOperations.AsNoTracking()
-            .Where(o => o.ProductUnitId == unitId)
-            .Include(o => o.RouteOperation)
-            .ToArrayAsync();
-        
-        var opIds = unitOps.Select(o => o.Id).ToHashSet();
-        var results = await _db.OperationResults.AsNoTracking().Where(r => opIds.Contains(r.UnitOperationId))
-            .ToArrayAsync();
-
-        return new UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult>(
-            unitId, results, unitOps);
-    }
 }

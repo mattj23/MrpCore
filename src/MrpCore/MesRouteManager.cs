@@ -43,6 +43,17 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     }
 
     /// <summary>
+    /// Get the highest version of a route operation by its root ID, regardless of whether it is active/archived.
+    /// </summary>
+    /// <param name="rootId"></param>
+    /// <returns></returns>
+    public async Task<TRouteOperation?> GetByRootId(int rootId)
+    {
+        return (await _db.RouteOperations.Where(o => o.RootId == rootId).ToArrayAsync())
+            .MaxBy(o => o.RootVersion);
+    }
+    
+    /// <summary>
     /// Add a new Route Operation to the data store. This will automatically set the RootId and RootVersion. Do not
     /// use this method to add an already existing operation.
     /// </summary>

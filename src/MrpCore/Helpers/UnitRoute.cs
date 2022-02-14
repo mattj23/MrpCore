@@ -3,7 +3,7 @@
 namespace MrpCore.Helpers;
 
 /// <summary>
-/// Represents a manufacturing route 
+/// Represents a manufacturing route for a specific unit.
 /// 
 /// </summary>
 /// <typeparam name="TProductType"></typeparam>
@@ -20,7 +20,6 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
     where TUnitOperation : UnitOperationBase<TProductType, TProductUnit, TRouteOperation>, new()
     where TOperationResult : OperationResultBase<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation>
 {
-    private readonly int _unitId;
     private readonly TOperationResult[] _results;
     private readonly IReadOnlyDictionary<int, TUnitOperation> _operations;
     private readonly IReadOnlyDictionary<int, OpStateChanges<TUnitState>> _stateChanges;
@@ -28,18 +27,26 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
     public UnitRoute(int unitId, TOperationResult[] results, TUnitOperation[] operations, 
         IReadOnlyDictionary<int, OpStateChanges<TUnitState>> stateChanges)
     {
-        _unitId = unitId;
+        UnitId = unitId;
         _results = results.OrderBy(o => o.UtcTime).ToArray();
         _operations = operations.ToDictionary(o => o.Id, o => o);
         _stateChanges = stateChanges;
         
         Calculate();
+
+        NextOperation = _operations.Values.FirstOrDefault(o => o.RouteOperationId == NextRouteOperation?.Id);
     }
+    
+    public int UnitId { get; }
 
     public TRouteOperation? NextRouteOperation { get; private set; }
     
-    public bool IsComplete { get; private set; }
+    public TUnitOperation? NextOperation { get; }
     
+    public bool IsComplete { get; private set; }
+
+    public IReadOnlyDictionary<int, TUnitOperation> OperationsById => _operations;
+
     public IReadOnlyCollection<TUnitState> ActiveStates { get; private set; }
 
     public IReadOnlyCollection<TOperationResult> Results => _results;
@@ -47,6 +54,8 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
     public TOperationResult? LastResult { get; private set; }
     
     public WipState State { get; private set; }
+
+    public bool HasRouteOp(int routeOpId) => _operations.Values.Any(o => o.RouteOperationId == routeOpId);
     
     private void Calculate()
     {
