@@ -107,7 +107,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     /// <exception cref="KeyNotFoundException">Thrown if the operation ID cannot be found</exception>
     public async Task UpdateOp(int id, Action<TRouteOperation> modifyAction, OpStateChanges<TUnitState> stateChanges)
     {
-        if (!await IsOpLocked(id))
+        if (await IsOpLocked(id))
             throw new InvalidOperationException(
                 "This route operation has already been referenced and cannot be edited.");
         
@@ -176,7 +176,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     public async Task<int> UpdateOrIncrement(int id, Action<TRouteOperation> modifyAction, 
         OpStateChanges<TUnitState> stateChanges)
     {
-        if (!await IsOpLocked(id))
+        if (await IsOpLocked(id))
         {
             return await IncrementOpVersion(id, modifyAction, stateChanges);
         }
@@ -194,7 +194,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     /// <exception cref="KeyNotFoundException">Thrown if the route ID cannot be found</exception>
     public async Task DeleteOp(int id)
     {
-        if (!await IsOpLocked(id))
+        if (await IsOpLocked(id))
             throw new InvalidOperationException(
                 "This route operation has already been referenced and cannot be deleted.");
         
