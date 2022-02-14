@@ -26,14 +26,19 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         _db = db;
         _routes = routes;
     }
+
+    public IQueryable<TProductUnit> Units => _db.Units.AsNoTracking();
     
     /// <summary>
     /// Adds a new product unit and creates its unit route from the product type's master route
     /// </summary>
     /// <param name="newUnit"></param>
     /// <param name="modifyOperations"></param>
-    public async Task AddUnit(TProductUnit newUnit, Action<TUnitOperation[]>? modifyOperations)
+    public async Task AddUnit(TProductUnit newUnit, Action<TUnitOperation[]>? modifyOperations = null)
     {
+        newUnit.Id = 0;
+        if (newUnit.CreatedUtc == default) newUnit.CreatedUtc = DateTime.UtcNow;
+        
         await _db.Units.AddAsync(newUnit);
         await _db.SaveChangesAsync();
         

@@ -10,7 +10,7 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
     where TProductUnit : ProductUnitBase<TProductType>
     where TRouteOperation : RouteOperationBase<TProductType>
     where TUnitOperation : UnitOperationBase<TProductType, TProductUnit, TRouteOperation>, new()
-    where TOperationResult : OperationResultBase<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation>
+    where TOperationResult : OperationResultBase<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation>, new()
 {
     private readonly MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation,
         TOperationResult> _db;
