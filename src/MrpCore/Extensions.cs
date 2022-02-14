@@ -23,5 +23,7 @@ public static class Extensions
             RouteOpAdd.Special => "Special",
             _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)};
     }
-    
+
+    public static bool IsStandard(this RouteOpAdd value) => value is RouteOpAdd.Default or RouteOpAdd.NotDefault;
+    public static bool NotSpecial(this RouteOpAdd value) => value is not RouteOpAdd.Special;
 }

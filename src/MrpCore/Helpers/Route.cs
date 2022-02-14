@@ -3,7 +3,7 @@
 namespace MrpCore.Helpers;
 
 /// <summary>
-/// This object represents a "master" manufacturing route for a specific type of product.
+/// Represents a "master" manufacturing route for a specific type of product.
 ///
 /// It is constructed from the complete collection of all route operations and computes from it meaning inherent in
 /// the complete set, such as operation order, relations between corrective operations and their parent, and special
