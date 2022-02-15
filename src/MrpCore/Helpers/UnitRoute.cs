@@ -75,7 +75,7 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
     /// <returns></returns>
     public bool CanOpRun(StateRelations<TUnitState> relations)
     {
-        return StatesBlockingOp(relations).Any() || StatesMissingForOp(relations).Any();
+        return !StatesBlockingOp(relations).Any() && !StatesMissingForOp(relations).Any();
     }
 
     /// <summary>
@@ -157,12 +157,11 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
     /// </summary>
     /// <param name="master"></param>
     /// <returns></returns>
-    public TRouteOperation[] AllowableSpecials(Route<TProductType, TUnitState, TRouteOperation> master)
+    public RouteOpAndStates<TProductType, TUnitState, TRouteOperation>[] AllowableSpecials(Route<TProductType, TUnitState, TRouteOperation> master)
     {
-        if (State is WipState.Terminated) return Array.Empty<TRouteOperation>();
+        if (State is WipState.Terminated) return Array.Empty<RouteOpAndStates<TProductType, TUnitState, TRouteOperation>>();
 
         return master.Special.Where(o => CanOpRun(o.States))
-            .Select(o => o.Op)
             .ToArray();
     }
 
