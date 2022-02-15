@@ -7,12 +7,12 @@ public class RouteOpAndStates<TProductType, TUnitState, TRouteOperation>
     where TProductType : ProductTypeBase
     where TRouteOperation : RouteOperationBase<TProductType>
 {
-    public RouteOpAndStates(TRouteOperation operation, OpStateChanges<TUnitState> states)
+    public RouteOpAndStates(TRouteOperation operation, StateRelations<TUnitState> states)
     {
         Op = operation;
         States = states;
     }
 
     public TRouteOperation Op { get; }
-    public OpStateChanges<TUnitState> States { get; }
+    public StateRelations<TUnitState> States { get; }
 }

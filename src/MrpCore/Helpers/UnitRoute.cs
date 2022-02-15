@@ -22,10 +22,10 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
 {
     private readonly TOperationResult[] _results;
     private readonly IReadOnlyDictionary<int, TUnitOperation> _operations;
-    private readonly IReadOnlyDictionary<int, OpStateChanges<TUnitState>> _stateChanges;
+    private readonly IReadOnlyDictionary<int, StateRelations<TUnitState>> _stateChanges;
 
     public UnitRoute(int unitId, TOperationResult[] results, TUnitOperation[] operations, 
-        IReadOnlyDictionary<int, OpStateChanges<TUnitState>> stateChanges)
+        IReadOnlyDictionary<int, StateRelations<TUnitState>> stateChanges)
     {
         UnitId = unitId;
         _results = results.OrderBy(o => o.UtcTime).ToArray();

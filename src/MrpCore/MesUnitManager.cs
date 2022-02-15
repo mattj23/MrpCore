@@ -80,7 +80,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
             .Where(s => referencedStateIds.Contains(s.Id))
             .ToDictionaryAsync(s => s.Id, s => s);
 
-        var changes = new Dictionary<int, OpStateChanges<TUnitState>>();
+        var changes = new Dictionary<int, StateRelations<TUnitState>>();
         
         foreach (var opId in routeOps)
         {
@@ -95,7 +95,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
                     removes.Add(states[opJoin.UnitStateId]);
             }
 
-            changes[opId] = new OpStateChanges<TUnitState>(adds, removes);
+            changes[opId] = new StateRelations<TUnitState>(adds, removes);
         }
         
         var opIds = unitOps.Select(o => o.Id).ToHashSet();
@@ -106,6 +106,27 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
             unitId, results, unitOps, changes);
     }
 
+    public async Task AddOpToRoute(int unitId, int routeOpId, Action<TUnitOperation>? modifyOperation=null)
+    {
+        var unit = await _db.Units.FindAsync(unitId);
+        if (unit is null) throw new KeyNotFoundException("Could not find the unit specified");
+
+        var routeOperation = await _db.RouteOperations.FindAsync(routeOpId);
+        if (routeOperation is null) throw new KeyNotFoundException("Could not find the route operation ID");
+
+        // Create or update the associated unit operation
+        var operation = await _db.UnitOperations
+            .FirstOrDefaultAsync(o => o.ProductUnitId == unitId && o.RouteOperationId == routeOpId);
+        if (operation is null)
+        {
+            operation = new TUnitOperation {ProductUnitId = unitId, RouteOperationId = routeOpId};
+            await _db.UnitOperations.AddAsync(operation);
+        }
+        
+        modifyOperation?.Invoke(operation);
+        await _db.SaveChangesAsync();
+    }
+        
     public async Task ApplySpecialOp(int unitId, int routeOpId, TOperationResult result,
         Action<TUnitOperation>? modifyOperation = null)
     {
