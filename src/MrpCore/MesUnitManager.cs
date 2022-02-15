@@ -28,6 +28,11 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
     }
 
     public IQueryable<TProductUnit> Units => _db.Units.AsNoTracking();
+
+    public ValueTask<TProductUnit?> GetUnit(int unitId)
+    {
+        return _db.Units.FindAsync(unitId);
+    }
     
     /// <summary>
     /// Adds a new product unit and creates its unit route from the product type's master route
@@ -117,7 +122,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
             .FirstOrDefaultAsync(o => o.ProductUnitId == unitId && o.RouteOperationId == routeOpId);
         if (operation is null)
         {
-            operation = new TUnitOperation();
+            operation = new TUnitOperation {ProductUnitId = unitId, RouteOperationId = routeOpId};
             await _db.UnitOperations.AddAsync(operation);
         }
         
@@ -130,7 +135,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         if (result.UtcTime == default) result.UtcTime = DateTime.UtcNow;
         result.Pass = true;
         await _db.OperationResults.AddAsync(result);
-
+        await _db.SaveChangesAsync();
     }
 
     public async Task ApplyResult(int unitId, int opId, TOperationResult result,
@@ -150,6 +155,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
             result.UtcTime = DateTime.UtcNow;
 
         await _db.OperationResults.AddAsync(result);
+        await _db.SaveChangesAsync();
         
         // Exit if the operation passed
         if (result.Pass) return;
@@ -181,5 +187,6 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
             await _db.UnitOperations.AddRangeAsync(missing);
         }
 
+        await _db.SaveChangesAsync();
     } 
 }

@@ -31,6 +31,12 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
         _results = results.OrderBy(o => o.UtcTime).ToArray();
         _operations = operations.ToDictionary(o => o.Id, o => o);
         _stateChanges = stateChanges;
+
+        foreach (var r in _results)
+        {
+            r.Operation = _operations[r.UnitOperationId];
+        }
+        
         RouteOperations = _operations.Values.Select(o => o.RouteOperation)
             .ToDictionary(o => o.RootId, o => o);
         
