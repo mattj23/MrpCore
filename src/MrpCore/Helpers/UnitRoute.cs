@@ -31,6 +31,8 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
         _results = results.OrderBy(o => o.UtcTime).ToArray();
         _operations = operations.ToDictionary(o => o.Id, o => o);
         _stateChanges = stateChanges;
+        RouteOperations = _operations.Values.Select(o => o.RouteOperation)
+            .ToDictionary(o => o.RootId, o => o);
         
         Calculate();
 
@@ -55,8 +57,27 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
     
     public WipState State { get; private set; }
 
-    public bool HasRouteOp(int routeOpId) => _operations.Values.Any(o => o.RouteOperationId == routeOpId);
+    public bool HasRouteOp(int routeOpId) => RouteOperations.ContainsKey(routeOpId);
     
+    public IReadOnlyDictionary<int, TRouteOperation> RouteOperations { get; private set; }
+
+    public TRouteOperation[] RemainingRoute()
+    {
+        if (NextRouteOperation is null)
+            return Array.Empty<TRouteOperation>();
+
+        var operations = new List<TRouteOperation> {NextRouteOperation};
+
+        var after = OperationAfter(operations.Last());
+        while (after is not null)
+        {
+            operations.Add(after);
+            after = OperationAfter(operations.Last());
+        }
+
+        return operations.ToArray();
+    }
+
     private void Calculate()
     {
         IsComplete = false;
@@ -96,8 +117,6 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
         }
 
         var lastRoute = _operations[LastResult.UnitOperationId].RouteOperation!;
-        var routeOperations = _operations.Values.Select(o => o.RouteOperation)
-            .ToDictionary(o => o.RootId, o => o);
         
         // If the last operation failed, the next operation is based on the failure behavior of the last operation
         if (!LastResult.Pass)
@@ -105,7 +124,7 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
             NextRouteOperation = lastRoute.FailureBehavior switch
             {
                 RouteOpFailure.Retry => lastRoute,
-                RouteOpFailure.CorrectiveProceed or RouteOpFailure.CorrectiveReturn => routeOperations.Values
+                RouteOpFailure.CorrectiveProceed or RouteOpFailure.CorrectiveReturn => RouteOperations.Values
                     .Where(o => o.CorrectiveId == lastRoute.RootId)
                     .MinBy(o => o.OpNumber),
                 _ => null
@@ -115,33 +134,7 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
             return;
         }
 
-        // The last operation passed. What happens next is determined by several things.
-        if (lastRoute.AddBehavior.IsStandard())
-        {
-            NextRouteOperation = routeOperations.Values
-                .Where(o => o.AddBehavior.IsStandard() && o.OpNumber > lastRoute.OpNumber)
-                .MinBy(o => o.OpNumber);
-        }
-        else if (lastRoute.AddBehavior is RouteOpAdd.Corrective)
-        {
-            // Find the next operation in the corrective chain
-           NextRouteOperation = routeOperations.Values
-                .Where(o => o.CorrectiveId == lastRoute.CorrectiveId && o.OpNumber > lastRoute.OpNumber)
-                .MinBy(o => o.OpNumber);
-
-           if (NextRouteOperation is not null) return;
-            
-           // If the corrective chain has ended we follow the behavior of the original failed operation
-            var failedOp = routeOperations[lastRoute.CorrectiveId];
-            NextRouteOperation = failedOp!.FailureBehavior switch
-            {
-                RouteOpFailure.CorrectiveProceed => routeOperations.Values
-                    .Where(o => o.AddBehavior.IsStandard() && o.OpNumber > failedOp.OpNumber)
-                    .MinBy(o => o.OpNumber),
-                RouteOpFailure.CorrectiveReturn => failedOp,
-                _ => throw new ArgumentOutOfRangeException()
-            };
-        }
+        NextRouteOperation = OperationAfter(lastRoute);
 
         if (NextRouteOperation is not null)
         {
@@ -152,6 +145,39 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
             IsComplete = !ActiveStates.Any(s => s.BlocksCompletion);
             State = IsComplete ? WipState.Complete : WipState.Blocked;
         }
+    }
+
+    private TRouteOperation? OperationAfter(TRouteOperation op)
+    {
+        if (op.AddBehavior.IsStandard())
+        {
+            return RouteOperations.Values
+                .Where(o => o.AddBehavior.IsStandard() && o.OpNumber > op.OpNumber)
+                .MinBy(o => o.OpNumber);
+        }
+        
+        if (op.AddBehavior is RouteOpAdd.Corrective)
+        {
+            // Find the next operation in the corrective chain
+           var next = RouteOperations.Values
+                .Where(o => o.CorrectiveId == op.CorrectiveId && o.OpNumber > op.OpNumber)
+                .MinBy(o => o.OpNumber);
+
+           if (next is not null) return next;
+            
+           // If the corrective chain has ended we follow the behavior of the original failed operation
+            var failedOp = RouteOperations[op.CorrectiveId];
+            return failedOp!.FailureBehavior switch
+            {
+                RouteOpFailure.CorrectiveProceed => RouteOperations.Values
+                    .Where(o => o.AddBehavior.IsStandard() && o.OpNumber > failedOp.OpNumber)
+                    .MinBy(o => o.OpNumber),
+                RouteOpFailure.CorrectiveReturn => failedOp,
+                _ => throw new ArgumentOutOfRangeException()
+            };
+        }
+
+        throw new NotSupportedException($"Behavior type {op.AddBehavior} is not supported for operation after");
     }
     
 }
