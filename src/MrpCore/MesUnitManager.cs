@@ -71,32 +71,9 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         if (!unitOps.Any()) throw new KeyNotFoundException("No operations found for this unit");
 
         var routeOps = unitOps.Select(o => o.RouteOperationId).ToHashSet();
-        var joins = await _db.StatesToRoutes.AsNoTracking()
-            .Where(s => routeOps.Contains(s.Id))
-            .ToListAsync();
-        
-        var referencedStateIds = joins.Select(j => j.UnitStateId).ToHashSet();
-        var states = await _db.States.AsNoTracking()
-            .Where(s => referencedStateIds.Contains(s.Id))
-            .ToDictionaryAsync(s => s.Id, s => s);
-
         var changes = new Dictionary<int, StateRelations<TUnitState>>();
-        
         foreach (var opId in routeOps)
-        {
-            var adds = new List<TUnitState>();
-            var removes = new List<TUnitState>();
-            var opJoins = joins.Where(j => j.RouteOperationId == opId);
-            foreach (var opJoin in opJoins)
-            {
-                if (opJoin.IsAdd)
-                    adds.Add(states[opJoin.UnitStateId]);
-                else 
-                    removes.Add(states[opJoin.UnitStateId]);
-            }
-
-            changes[opId] = new StateRelations<TUnitState>(adds, removes);
-        }
+            changes.Add(opId, await _routes.GetStates(opId));
         
         var opIds = unitOps.Select(o => o.Id).ToHashSet();
         var results = await _db.OperationResults.AsNoTracking().Where(r => opIds.Contains(r.UnitOperationId))

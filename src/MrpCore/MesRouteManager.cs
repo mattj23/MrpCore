@@ -264,15 +264,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         return new Route<TProductType, TUnitState, TRouteOperation>(productTypeId, results.ToArray());
     }
 
-    private async Task<RouteOpAndStates<TProductType, TUnitState, TRouteOperation>> GetOpAndStates(int routeOpId)
-    {
-        var op = await  _db.RouteOperations.FindAsync(routeOpId);
-        if (op is null) throw new KeyNotFoundException();
-
-        return new RouteOpAndStates<TProductType, TUnitState, TRouteOperation>(op, await GetStates(routeOpId));
-    }
-
-    private async Task<StateRelations<TUnitState>> GetStates(int routeOpId)
+    public async Task<StateRelations<TUnitState>> GetStates(int routeOpId)
     {
         var joins = await _db.StatesToRoutes.AsNoTracking()
             .Where(s => s.RouteOperationId == routeOpId)
@@ -284,6 +276,14 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
             joins.Where(j => j.Relation == OpRelation.Needs).Select(j => j.State),
             joins.Where(j => j.Relation == OpRelation.BlockedBy).Select(j => j.State)
         );
+    }
+
+    private async Task<RouteOpAndStates<TProductType, TUnitState, TRouteOperation>> GetOpAndStates(int routeOpId)
+    {
+        var op = await  _db.RouteOperations.FindAsync(routeOpId);
+        if (op is null) throw new KeyNotFoundException();
+
+        return new RouteOpAndStates<TProductType, TUnitState, TRouteOperation>(op, await GetStates(routeOpId));
     }
 
     /// <summary>

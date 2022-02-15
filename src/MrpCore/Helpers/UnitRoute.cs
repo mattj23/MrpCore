@@ -67,6 +67,40 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
     
     public IReadOnlyDictionary<int, TRouteOperation> RouteOperations { get; private set; }
 
+    /// <summary>
+    /// Determines whether or not an operation that had the given set of state relations would be allowed to run based
+    /// on the Needs and BlockedBy collections checked against this unit's active states.
+    /// </summary>
+    /// <param name="relations"></param>
+    /// <returns></returns>
+    public bool CanOpRun(StateRelations<TUnitState> relations)
+    {
+        return StatesBlockingOp(relations).Any() || StatesMissingForOp(relations).Any();
+    }
+
+    /// <summary>
+    /// From a set of state relations, determines which ones in the Needs collection are missing from the active state
+    /// of this unit and thus are preventing an associated operation from occuring.
+    /// </summary>
+    /// <param name="relations"></param>
+    /// <returns></returns>
+    public IReadOnlyCollection<TUnitState> StatesMissingForOp(StateRelations<TUnitState> relations) =>
+        relations.Needs.Where(r => !ActiveStates.Contains(r)).ToArray();
+
+    /// <summary>
+    /// From a set of state relations, determines which ones in the BlockedBy collection are currently in the unit's
+    /// active states and thus are blocking an associated operation
+    /// </summary>
+    /// <param name="relations"></param>
+    /// <returns></returns>
+    public IReadOnlyCollection<TUnitState> StatesBlockingOp(StateRelations<TUnitState> relations) =>
+        relations.BlockedBy.Where(r => ActiveStates.Contains(r)).ToArray();
+    
+    /// <summary>
+    /// Calculates and returns what the remaining operations in the route would be assuming that all operation results
+    /// are successful from this point forward.
+    /// </summary>
+    /// <returns></returns>
     public TRouteOperation[] RemainingRoute()
     {
         if (NextRouteOperation is null)
@@ -82,6 +116,54 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
         }
 
         return operations.ToArray();
+    }
+
+    /// <summary>
+    /// Returns true if there is a next operation and that operation is currently being blocked by an active state on
+    /// the unit.
+    /// </summary>
+    /// <returns></returns>
+    public bool IsNextOpBlocked()
+    {
+        if (NextRouteOperation is null) return false;
+        return CanOpRun(_stateChanges[NextRouteOperation.Id]);
+    }
+
+    /// <summary>
+    /// From a master route, determine which missing standard operations would be allowable to add to this unit's route
+    /// </summary>
+    /// <param name="master"></param>
+    /// <returns></returns>
+    public TRouteOperation[] AllowableOptionals(Route<TProductType, TUnitState, TRouteOperation> master)
+    {
+        if (State is WipState.Terminated) return Array.Empty<TRouteOperation>();
+        
+        var passedStandard = Results
+            .Where(r => r.Operation!.RouteOperation!.AddBehavior.IsStandard() && r.Pass)
+            .Select(r => r.Operation!.RouteOperation!.OpNumber)
+            .ToArray();
+        var lastOpNumber = passedStandard.Any() ? passedStandard.Max() : 0;
+
+        var roots = RouteOperations.Values.Select(r => r.RootId).ToHashSet();
+        return master.Standard
+            .Where(r => r.Op.OpNumber > lastOpNumber && !roots.Contains(r.Op.RootId))
+            .Select(r => r.Op)
+            .ToArray();
+    }
+    
+    /// <summary>
+    /// From a master route, determine which special operations would be allowable to perform on this unit at the
+    /// current time.
+    /// </summary>
+    /// <param name="master"></param>
+    /// <returns></returns>
+    public TRouteOperation[] AllowableSpecials(Route<TProductType, TUnitState, TRouteOperation> master)
+    {
+        if (State is WipState.Terminated) return Array.Empty<TRouteOperation>();
+
+        return master.Special.Where(o => CanOpRun(o.States))
+            .Select(o => o.Op)
+            .ToArray();
     }
 
     private void Calculate()
