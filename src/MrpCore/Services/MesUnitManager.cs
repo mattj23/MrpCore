@@ -2,7 +2,7 @@
 using MrpCore.Helpers;
 using MrpCore.Models;
 
-namespace MrpCore;
+namespace MrpCore.Services;
 
 public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult>
     where TUnitState : UnitStateBase
@@ -19,12 +19,15 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
     private readonly MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation,
         TOperationResult> _routes;
 
+    private readonly IMesUpdater _updater;
+    
     public MesUnitManager(
         MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult> db, 
-        MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult> routes)
+        MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult> routes, IMesUpdater updater)
     {
         _db = db;
         _routes = routes;
+        _updater = updater;
     }
 
     public IQueryable<TProductUnit> Units => _db.Units.AsNoTracking();
@@ -57,6 +60,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         modifyOperations?.Invoke(operations);
         await _db.UnitOperations.AddRangeAsync(operations);
         await _db.SaveChangesAsync();
+        _updater.UpdateUnit(ChangeType.Created, newUnit.Id);
     }
     
     public async
@@ -102,6 +106,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         
         modifyOperation?.Invoke(operation);
         await _db.SaveChangesAsync();
+        _updater.UpdateUnit(ChangeType.Updated, unitId);
     }
         
     public async Task ApplySpecialOp(int unitId, int routeOpId, TOperationResult result,
@@ -134,6 +139,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         result.Pass = true;
         await _db.OperationResults.AddAsync(result);
         await _db.SaveChangesAsync();
+        _updater.UpdateUnit(ChangeType.Updated, unitId);
     }
 
     public async Task ApplyResult(int unitId, int opId, TOperationResult result,
@@ -156,7 +162,11 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         await _db.SaveChangesAsync();
         
         // Exit if the operation passed
-        if (result.Pass) return;
+        if (result.Pass)
+        {
+            _updater.UpdateResult(true, result.Id);
+            _updater.UpdateUnit(ChangeType.Updated, unitId);
+        };
 
         // If the operation failed we may need to perform additional actions based on the route operation
         var routeOperation = await _db.RouteOperations.FindAsync(unitRoute.NextOperation.RouteOperationId);
@@ -186,5 +196,8 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         }
 
         await _db.SaveChangesAsync();
+        
+        _updater.UpdateResult(false, result.Id);
+        _updater.UpdateUnit(ChangeType.Updated, unitId);
     } 
 }

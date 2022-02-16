@@ -2,7 +2,7 @@
 using MrpCore.Helpers;
 using MrpCore.Models;
 
-namespace MrpCore;
+namespace MrpCore.Services;
 
 /// <summary>
 /// Manager class which specifically handles operations related to Route Operations/master routes.
@@ -25,10 +25,13 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     private readonly MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation,
         TOperationResult> _db;
 
+    private readonly IMesUpdater _updater;
+    
     public MesRouteManager(
-        MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult> db)
+        MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult> db, IMesUpdater updater)
     {
         _db = db;
+        _updater = updater;
     }
 
     /// <summary>
@@ -74,6 +77,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         var joins = GetJoins(operation.Id, states);
         await _db.StatesToRoutes.AddRangeAsync(joins);
         await _db.SaveChangesAsync();
+        _updater.UpdateRoute(ChangeType.Updated, operation.ProductTypeId);
 
         return operation.Id;
     }
@@ -133,6 +137,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         var newJoins = GetJoins(id, states);
         await _db.StatesToRoutes.AddRangeAsync(newJoins);
         await _db.SaveChangesAsync();
+        _updater.UpdateRoute(ChangeType.Updated, item.ProductTypeId);
     }
 
     /// <summary>
@@ -164,6 +169,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         var newJoins = GetJoins(item.Id, states);
         await _db.StatesToRoutes.AddRangeAsync(newJoins);
         await _db.SaveChangesAsync();
+        _updater.UpdateRoute(ChangeType.Updated, item.ProductTypeId);
 
         return item.Id;
     }
@@ -209,6 +215,8 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         _db.StatesToRoutes.RemoveRange(joins);
         _db.RouteOperations.Remove(item);
         await _db.SaveChangesAsync();
+        
+        _updater.UpdateRoute(ChangeType.Updated, item.ProductTypeId);
     }
 
     /// <summary>
@@ -223,6 +231,8 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         if (item is null) throw new KeyNotFoundException();
         item.Archived = true;
         await _db.SaveChangesAsync();
+        
+        _updater.UpdateRoute(ChangeType.Updated, item.ProductTypeId);
     }
     
     /// <summary>

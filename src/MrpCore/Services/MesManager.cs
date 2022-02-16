@@ -1,8 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
-using MrpCore.Helpers;
-using MrpCore.Models;
+﻿using MrpCore.Models;
 
-namespace MrpCore;
+namespace MrpCore.Services;
 
 public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult> 
     where TUnitState : UnitStateBase
@@ -15,17 +13,20 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
     private readonly MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation,
         TOperationResult> _db;
 
+    private readonly IMesUpdater _updater;
+    
     protected MesManager(
-        MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult> db)
+        MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult> db, IMesUpdater updater)
     {
         _db = db;
+        _updater = updater;
         RouteManager =
             new MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation,
-                TOperationResult>(_db);
+                TOperationResult>(_db, _updater);
         
         UnitManager =
             new MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation,
-                TOperationResult>(_db, RouteManager);
+                TOperationResult>(_db, RouteManager, _updater);
 
     }
 
@@ -46,6 +47,7 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
     {
         await _db.Types.AddAsync(newItem);
         await _db.SaveChangesAsync();
+        _updater.UpdateRoute(ChangeType.Created, newItem.Id);
         return newItem.Id;
     }
 
@@ -53,6 +55,7 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
     {
         await _db.States.AddAsync(newItem);
         await _db.SaveChangesAsync();
+        _updater.UpdateStates(ChangeType.Created, newItem.Id);
         return newItem.Id;
     }
 
