@@ -126,7 +126,19 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
     public bool IsNextOpBlocked()
     {
         if (NextRouteOperation is null) return false;
-        return CanOpRun(_stateChanges[NextRouteOperation.Id]);
+        return !CanOpRun(_stateChanges[NextRouteOperation.Id]);
+    }
+
+    public IReadOnlyCollection<TUnitState> MissingForNextOp()
+    {
+        if (NextRouteOperation is null) return Array.Empty<TUnitState>();
+        return StatesMissingForOp(_stateChanges[NextRouteOperation.Id]);
+    }
+    
+    public IReadOnlyCollection<TUnitState> BlockingNextOp()
+    {
+        if (NextRouteOperation is null) return Array.Empty<TUnitState>();
+        return StatesBlockingOp(_stateChanges[NextRouteOperation.Id]);
     }
 
     /// <summary>
