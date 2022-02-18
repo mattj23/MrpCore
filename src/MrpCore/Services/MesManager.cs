@@ -91,6 +91,19 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
     {
         return _db.Namespaces.AnyAsync();
     }
+
+    public async Task<bool> NamespaceHasBeenReferenced(int namespaceId)
+    {
+        return await _db.ToolTypes.AsNoTracking().AnyAsync(t => t.NamespaceId == namespaceId) ||
+               await _db.States.AsNoTracking().AnyAsync(s => s.NamespaceId == namespaceId) ||
+               await _db.Types.AsNoTracking().AnyAsync(t => t.NamespaceId == namespaceId);
+    }
+    
+    public async Task CreateNamespace(Namespace item)
+    {
+        await _db.Namespaces.AddAsync(item);
+        await _db.SaveChangesAsync();
+    }
     
     public async Task<int> CreateProductType(TProductType newItem)
     {
