@@ -11,6 +11,8 @@ public class UnitStateBase : IEquatable<UnitStateBase>
     [MaxLength(32)]
     public string Name { get; set; } = null!;
     
+    public int? NamespaceId { get; set; }
+    
     [MaxLength(128)]
     public string? Description { get; set; }
     
