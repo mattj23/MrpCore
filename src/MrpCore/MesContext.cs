@@ -28,6 +28,15 @@ public class MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation,
     public DbSet<TOperationResult> OperationResults { get; set; } = null!;
     public DbSet<StateRoute<TProductType, TUnitState, TRouteOperation>> StatesToRoutes { get; set; } = null!;
 
+    public DbSet<Namespace> Namespaces { get; set; } = null!;
+    public DbSet<ToolType> ToolTypes { get; set; } = null!;
+    public DbSet<Tool> Tools { get; set; } = null!;
+    public DbSet<ToolRequirement> ToolRequirements { get; set; } = null!;
+    public DbSet<ToolClaim> ToolClaims { get; set; } = null!;
+    
+    public DbSet<MaterialRequirement> MaterialRequirements { get; set; } = null!;
+    public DbSet<MaterialClaim> MaterialClaims { get; set; } = null!;
+
     public MesContext(DbContextOptions options) : base(options)
     {
         

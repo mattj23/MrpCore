@@ -1,4 +1,5 @@
-﻿using MrpCore.Models;
+﻿using Microsoft.EntityFrameworkCore;
+using MrpCore.Models;
 
 namespace MrpCore.Services;
 
@@ -35,13 +36,61 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
     
     public MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult>
         UnitManager { get; }
-    
-    
+
+    public IQueryable<Namespace> Namespaces => _db.Namespaces; 
     public IQueryable<TProductType> ProductTypes => _db.Types;
     public ValueTask<TProductType?> ProductTypeById(int id) => _db.Types.FindAsync(id);
     public IQueryable<TUnitState> UnitStates => _db.States;
 
-    public ValueTask<TUnitState?> UnitStateById(int id) => _db.States.FindAsync(id); 
+    public ValueTask<TUnitState?> UnitStateById(int stateId) => _db.States.FindAsync(stateId);
+
+    public async Task UpdateState(int stateId, Action<TUnitState> modifyAction)
+    {
+        var target = await _db.States.FindAsync(stateId);
+        if (target is null) throw new KeyNotFoundException();
+
+        var locked = await StateHasBeenReferenced(stateId);
+        var blocks = target.BlocksCompletion;
+        var terminates = target.TerminatesRoute;
+        
+        modifyAction.Invoke(target);
+
+        if (locked && (blocks != target.BlocksCompletion || terminates != target.TerminatesRoute))
+        {
+            throw new InvalidOperationException(
+                "This state has been referenced, its functional parameters cannot be changed.");
+        }
+
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task DeleteState(int stateId)
+    {
+        var target = await _db.States.FindAsync(stateId);
+        if (target is null) throw new KeyNotFoundException();
+
+        var locked = await StateHasBeenReferenced(stateId);
+        if (locked)
+            throw new InvalidOperationException("State cannot be deleted after it has already been referenced");
+
+        _db.States.Remove(target);
+        await _db.SaveChangesAsync();
+    }
+    
+    public Task<bool> StateHasBeenReferenced(int stateId)
+    {
+        return _db.StatesToRoutes.AsNoTracking().AnyAsync(j => j.UnitStateId == stateId);
+    }
+    
+    public Task<Namespace?> GetNamespaceByKey(string key)
+    {
+        return _db.Namespaces.FirstOrDefaultAsync(n => n.Key == key);
+    }
+
+    public Task<bool> HasMultipleNamespaces()
+    {
+        return _db.Namespaces.AnyAsync();
+    }
     
     public async Task<int> CreateProductType(TProductType newItem)
     {

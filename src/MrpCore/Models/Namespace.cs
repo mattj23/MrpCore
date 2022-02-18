@@ -7,7 +7,7 @@ public class Namespace
     [Key]
     public int Id { get; set; }
     
-    [MaxLength(16)] public string ShortName { get; set; } = null!;
+    [MaxLength(16)] public string Key { get; set; } = null!;
 
     [MaxLength(128)] public string? Description { get; set; }
 }
