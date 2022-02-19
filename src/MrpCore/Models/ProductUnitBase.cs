@@ -16,6 +16,8 @@ public class ProductUnitBase<TProductType> where TProductType : ProductTypeBase
     
     public DateTime CreatedUtc { get; set; }
     
+    public int Quantity { get; set; }
+    
     /// <summary>
     /// Gets or sets a flag which determines whether the item has been archived. Archived items do not get queried
     /// during operations concerning WIP or active inventory. They still exist in the database and are queried during
