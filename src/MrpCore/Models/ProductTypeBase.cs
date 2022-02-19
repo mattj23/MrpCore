@@ -14,7 +14,7 @@ public class ProductTypeBase
     [MaxLength(256)]
     public string? Description { get; set; }
 
-    public int OutputQuantity { get; set; }
+    public int UnitQuantity { get; set; }
     
     public int? NamespaceId { get; set; }
 }
