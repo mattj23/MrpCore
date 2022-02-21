@@ -20,4 +20,6 @@ public class Tool
     public ToolType? Type { get; set; }
     
     public bool Retired { get; set; }
+
+    [NotMapped] public string? TypeName => Type?.Name;
 }
