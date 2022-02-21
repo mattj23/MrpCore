@@ -29,6 +29,9 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
             new MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation,
                 TOperationResult>(_db, RouteManager, _updater);
 
+        ToolManager =
+            new MesToolingManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation,
+                TOperationResult>(_db, _updater);
     }
 
     public MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult>
@@ -36,6 +39,9 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
     
     public MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult>
         UnitManager { get; }
+    
+    public MesToolingManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult>
+        ToolManager { get; }
 
     public IQueryable<Namespace> Namespaces => _db.Namespaces; 
     public IQueryable<TProductType> ProductTypes => _db.Types;

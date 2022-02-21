@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MrpCore.Models;
 
@@ -13,7 +14,10 @@ public class Tool
     
     public int? Capacity { get; set; }
     
-    public int? Available { get; set; }
+    public int TypeId { get; set; }
+    
+    [ForeignKey(nameof(TypeId))]
+    public ToolType? Type { get; set; }
     
     public bool Retired { get; set; }
 }
