@@ -50,6 +50,7 @@ public class MesToolingManager<TProductType, TUnitState, TProductUnit, TRouteOpe
         
         modifyAction.Invoke(target);
         await _db.SaveChangesAsync();
+        _updater.UpdateToolType(ChangeType.Updated, typeId);
     }
 
     public async Task DeleteType(int typeId)    
@@ -63,6 +64,7 @@ public class MesToolingManager<TProductType, TUnitState, TProductUnit, TRouteOpe
 
         _db.ToolTypes.Remove(target);
         await _db.SaveChangesAsync();
+        _updater.UpdateToolType(ChangeType.Deleted, typeId);
     }
     
     public Task<Tool[]> GetTools(int? namespaceId)
@@ -78,5 +80,38 @@ public class MesToolingManager<TProductType, TUnitState, TProductUnit, TRouteOpe
         return _db.ToolClaims.AsNoTracking().AnyAsync(t => t.ToolId == toolId);
     }
     
+    public async Task<int> CreateTool(Tool tool)
+    {
+        await _db.Tools.AddAsync(tool);
+        await _db.SaveChangesAsync();
+        _updater.UpdateTool(ChangeType.Created, tool.Id);
+        return tool.Id;
+    }
+    
+    public async Task UpdateTool(int toolId, Action<Tool> modifyAction)
+    {
+        var target = await _db.Tools.FindAsync(toolId);
+        if (target is null) throw new KeyNotFoundException();
+        
+        // var locked = await ToolHasBeenReferenced(toolId);
+        
+        modifyAction.Invoke(target);
+        await _db.SaveChangesAsync();
+        _updater.UpdateTool(ChangeType.Updated, toolId);
+    }
+
+    public async Task DeleteTool(int toolId)    
+    {
+        var target = await _db.Tools.FindAsync(toolId);
+        if (target is null) throw new KeyNotFoundException();
+
+        var locked = await ToolHasBeenReferenced(toolId);
+        if (locked)
+            throw new InvalidOperationException("Tool cannot be deleted after it has already been referenced");
+
+        _db.Tools.Remove(target);
+        await _db.SaveChangesAsync();
+        _updater.UpdateTool(ChangeType.Deleted, toolId);
+    }
     
 }
