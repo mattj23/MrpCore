@@ -8,9 +8,9 @@ public class ToolRequirement
     public int Id { get; set; }
     
     /// <summary>
-    /// Gets or sets the RootId of the route operation which has this requirement
+    /// Gets or sets the id of the route operation which has this requirement
     /// </summary>
-    public int RouteOpRootId { get; set; }
+    public int RouteOperationId { get; set; }
     
     /// <summary>
     /// Gets or sets the ID of the tool type that is used by this requirement

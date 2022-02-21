@@ -265,7 +265,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
 
         var routeOpIds = routeOps.Select(r => r.Id).ToHashSet();
 
-        var results = new List<RouteOpAndStates<TProductType, TUnitState, TRouteOperation>>();
+        var results = new List<RouteOpAndData<TProductType, TUnitState, TRouteOperation>>();
         foreach (var id in routeOpIds)
         {
             results.Add(await GetOpAndStates(id));
@@ -288,12 +288,16 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         );
     }
 
-    private async Task<RouteOpAndStates<TProductType, TUnitState, TRouteOperation>> GetOpAndStates(int routeOpId)
+    private async Task<RouteOpAndData<TProductType, TUnitState, TRouteOperation>> GetOpAndStates(int routeOpId)
     {
         var op = await  _db.RouteOperations.FindAsync(routeOpId);
         if (op is null) throw new KeyNotFoundException();
 
-        return new RouteOpAndStates<TProductType, TUnitState, TRouteOperation>(op, await GetStates(routeOpId));
+        var states = await GetStates(routeOpId);
+        var toolReqs = await _db.ToolRequirements.Where(r => r.RouteOperationId == routeOpId).ToArrayAsync();
+        var materialReqs = await _db.MaterialRequirements.Where(r => r.RouteOperationId == routeOpId).ToArrayAsync();
+
+        return new RouteOpAndData<TProductType, TUnitState, TRouteOperation>(op, states, toolReqs, materialReqs);
     }
 
     /// <summary>

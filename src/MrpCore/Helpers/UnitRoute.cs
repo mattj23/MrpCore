@@ -169,9 +169,9 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
     /// </summary>
     /// <param name="master"></param>
     /// <returns></returns>
-    public RouteOpAndStates<TProductType, TUnitState, TRouteOperation>[] AllowableSpecials(Route<TProductType, TUnitState, TRouteOperation> master)
+    public RouteOpAndData<TProductType, TUnitState, TRouteOperation>[] AllowableSpecials(Route<TProductType, TUnitState, TRouteOperation> master)
     {
-        if (State is WipState.Terminated) return Array.Empty<RouteOpAndStates<TProductType, TUnitState, TRouteOperation>>();
+        if (State is WipState.Terminated) return Array.Empty<RouteOpAndData<TProductType, TUnitState, TRouteOperation>>();
 
         return master.Special.Where(o => CanOpRun(o.States))
             .ToArray();

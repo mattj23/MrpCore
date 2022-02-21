@@ -49,5 +49,6 @@ public class MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation,
         
         modelBuilder.Entity<StateRoute<TProductType, TUnitState, TRouteOperation>>()
             .HasOne(i => i.State);
+        
     }
 }

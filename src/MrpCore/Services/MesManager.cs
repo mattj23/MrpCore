@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using MrpCore.Helpers;
 using MrpCore.Models;
 
 namespace MrpCore.Services;
@@ -125,6 +126,23 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
         await _db.SaveChangesAsync();
         _updater.UpdateStates(ChangeType.Created, newItem.Id);
         return newItem.Id;
+    }
+
+    public async Task<NamespaceData<TUnitState, TProductType>> GetNamespaceData(int? namespaceId)
+    {
+        var productTypes = await _db.Types.AsNoTracking()
+            .Where(p => p.NamespaceId == null || p.NamespaceId == namespaceId)
+            .ToArrayAsync();
+        
+        var states = await _db.States.AsNoTracking()
+            .Where(p => p.NamespaceId == null || p.NamespaceId == namespaceId)
+            .ToArrayAsync();
+        
+        var toolTypes = await _db.ToolTypes.AsNoTracking()
+            .Where(p => p.NamespaceId == null || p.NamespaceId == namespaceId)
+            .ToArrayAsync();
+
+        return new NamespaceData<TUnitState, TProductType>(productTypes, states, toolTypes);
     }
 
 }
