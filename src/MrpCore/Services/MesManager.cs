@@ -145,42 +145,4 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
         return new NamespaceData<TUnitState, TProductType>(productTypes, states, toolTypes);
     }
 
-    public async Task<TProductUnit[]> GetMaterialOptions(int typeId, int? quantity)
-    {
-        var qty = quantity ?? 0;
-        
-        var candidates = await _db.Units.AsNoTracking()
-            .Where(u => u.ProductTypeId == typeId && !u.Archived && u.Quantity >= qty)
-            .ToArrayAsync();
-
-        var ids = candidates.Select(c => c.Id).ToHashSet();
-        var consumed = await _db.MaterialClaims.AsNoTracking()
-            .Where(x => ids.Contains(x.ProductUnitId))
-            .GroupBy(x => x.ProductUnitId)
-            .Select(g => new { Id = g.Key, Sum = g.Sum(x => x.QuantityConsumed ?? 0) })
-            .ToDictionaryAsync(x => x.Id, x => x.Sum);
-        
-        foreach (var id in ids.Where(id => !consumed.ContainsKey(id))) consumed[id] = 0;
-
-        return candidates.Where(c => c.Quantity - consumed[c.Id] >= qty).ToArray();
-    }
-
-    public async Task<Tool[]> GetToolOptions(int toolTypeId, int? capacity)
-    {
-        var candidates = await _db.Tools.AsNoTracking()
-            .Where(t => !t.Retired && t.TypeId == toolTypeId)
-            .ToArrayAsync();
-
-        var ids = candidates.Select(c => c.Id).ToHashSet();
-        var consumed = await _db.ToolClaims.AsNoTracking()
-            .Where(x => !x.Released && ids.Contains(x.ToolId))
-            .GroupBy(x => x.ToolId)
-            .Select(g => new { Id = g.Key, Sum = g.Sum(x => x.CapacityTaken ?? 0) })
-            .ToDictionaryAsync(x => x.Id, x => x.Sum);
-
-        foreach (var id in ids.Where(id => !consumed.ContainsKey(id))) consumed[id] = 0;
-        
-        return candidates.Where(c => c.Capacity - consumed[c.Id] >= (capacity ?? 0)).ToArray();
-    }
-
 }

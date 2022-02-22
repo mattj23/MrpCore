@@ -151,6 +151,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
     }
 
     public async Task ApplyResult(int unitId, int opId, TOperationResult result,
+        RequirementSelect[]? selects=null,
         Action<TUnitOperation[]>? modifyCorrective=null, 
         Action<TUnitOperation>? modifySpecial = null)
     {
@@ -159,6 +160,14 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         if (unitRoute.NextOperation?.Id != opId)
             throw new ArgumentException("The unit operation ID specified is not the next operation which needs to " +
                                         "run on this unit");
+        
+        // Verify requirements
+        var routeOpId = unitRoute.NextOperation.RouteOperationId;
+        var requirements = await _routes.GetRequirementsFor(routeOpId, result.Pass);
+        selects ??= Array.Empty<RequirementSelect>();
+        if (!ValidateSelects(selects, requirements)) 
+            throw new InvalidOperationException("Selects don't match requirements for this operation");
+
 
         // Prepare and post the result
         result.Id = 0;
@@ -168,6 +177,13 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
 
         await _db.OperationResults.AddAsync(result);
         await _db.SaveChangesAsync();
+        
+        // Apply any requirements
+        await CreateClaims(result.Id, selects, requirements);
+        
+        // Release any tools
+        var resultIds = unitRoute.Results.Select(r => r.Id).ToHashSet();
+        await ReleaseTools(routeOpId, resultIds);
         
         // Exit if the operation passed
         if (result.Pass)
@@ -221,5 +237,103 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         
         _updater.UpdateResult(false, result.Id);
         _updater.UpdateUnit(ChangeType.Updated, unitId);
-    } 
+    }
+
+    private async Task ReleaseTools(int routeOperationId, HashSet<int> unitOpResultIds)
+    {
+        // Are there any releasing tool requirements?
+        var releases = await _db.ToolRequirements.AsNoTracking()
+            .Where(r => r.RouteOperationId == routeOperationId && r.Type == ToolRequirementType.Released)
+            .ToArrayAsync();
+
+        if (!releases.Any()) return;
+        
+        // Find all open claims associated with this product unit
+        var openClaims = await _db.ToolClaims.AsNoTracking()
+            .Where(c => !c.Released && unitOpResultIds.Contains(c.ResultId))
+            .Include(c => c.Tool)
+            .ToArrayAsync();
+
+        foreach (var release in releases)
+        {
+            // Find the open claims for this tool type
+            var matching = openClaims.Where(c => c.Tool!.TypeId == release.ToolTypeId).ToArray();
+
+            // TODO: Skip? Should we raise an error?
+            if (!matching.Any()) continue;
+            
+            // TODO: should the release be the oldest? or the most recent? For now it's just the first
+            var target = await _db.ToolClaims.FindAsync(matching.First().Id);
+            target!.Released = true;
+        }
+
+        await _db.SaveChangesAsync();
+    }
+
+    private bool ValidateSelects(IReadOnlyCollection<RequirementSelect> selects,
+        IReadOnlyCollection<RequirementData> requirements)
+    {
+        foreach (var req in requirements)
+        {
+            // Find the matching select
+            var match = selects.FirstOrDefault(s => s.ReqId == req.ReferenceId && s.Type == req.Type);
+            if (match is null) 
+                return false;
+
+            // Now find the option that was in the select
+            if (req.Options.All(v => v.Id != match.SelectedId))
+                return false;
+        }
+
+        return true;
+    }
+
+    private async Task CreateClaims(int resultId, IReadOnlyCollection<RequirementSelect> selects,
+        IReadOnlyCollection<RequirementData> requirements)
+    {
+        bool updated = false;
+        foreach (var req in requirements)
+        {
+            // Find the matching select
+            var match = selects.FirstOrDefault(s => s.ReqId == req.ReferenceId && s.Type == req.Type);
+            if (match is null) 
+                throw new InvalidOperationException("Cannot construct claim, requirement missing");
+
+            var selectedOption = req.Options.FirstOrDefault(o => o.Id == match.SelectedId);
+            if (selectedOption is null)
+                throw new InvalidOperationException("Cannot construct claim, requirement specified an invalid option");
+
+            switch (req.Type)
+            {
+                case RequirementData.ReqType.Material:
+                    var originalMatReq = await _db.MaterialRequirements.AsNoTracking()
+                        .FirstAsync(r => r.Id == req.ReferenceId);
+                    await _db.MaterialClaims.AddAsync(new MaterialClaim
+                    {
+                        ProductUnitId = match.SelectedId,
+                        QuantityConsumed = originalMatReq.Quantity,
+                        ResultId = resultId
+                    });
+                    updated = true;
+                    break;
+                case RequirementData.ReqType.Tool:
+                    var originalToolReq = await _db.ToolRequirements.AsNoTracking() 
+                        .FirstAsync(r => r.Id == req.ReferenceId);
+                    await _db.ToolClaims.AddAsync(new ToolClaim
+                    {
+                        ToolId = match.SelectedId,
+                        CapacityTaken = originalToolReq.CapacityTaken,
+                        ResultId = resultId,
+                        Released = originalToolReq.Type is not ToolRequirementType.Occupied
+                    });
+                    updated = true;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+
+        if (updated)
+            await _db.SaveChangesAsync();
+    }
 }

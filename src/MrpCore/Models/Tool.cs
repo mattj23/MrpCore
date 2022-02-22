@@ -22,4 +22,9 @@ public class Tool
     public bool Retired { get; set; }
 
     [NotMapped] public string? TypeName => Type?.Name;
+
+    public override string ToString()
+    {
+        return Name;
+    }
 }

@@ -24,4 +24,9 @@ public class ProductUnitBase<TProductType> where TProductType : ProductTypeBase
     /// operations which examine historical records.
     /// </summary>
     public bool Archived { get; set; }
+
+    public override string ToString()
+    {
+        return $"Unit {Id}";
+    }
 }

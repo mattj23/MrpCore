@@ -292,7 +292,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         var results = new List<RouteOpAndData<TProductType, TUnitState, TRouteOperation>>();
         foreach (var id in routeOpIds)
         {
-            results.Add(await GetOpAndStates(id));
+            results.Add(await GetOpAndData(id));
         }
 
         return new Route<TProductType, TUnitState, TRouteOperation>(productTypeId, results.ToArray());
@@ -312,7 +312,43 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         );
     }
 
-    private async Task<RouteOpAndData<TProductType, TUnitState, TRouteOperation>> GetOpAndStates(int routeOpId)
+    public async Task<IReadOnlyCollection<RequirementData>> GetRequirementsFor(int routeOpId, bool pass)
+    {
+        var data = await GetOpAndData(routeOpId);
+        var results = new List<RequirementData>();
+
+        foreach (var mat in data.MaterialRequirements)
+        {
+            if (!pass && !mat.ConsumedOnFailure) continue;
+            var reqType = await _db.Types.AsNoTracking().FirstOrDefaultAsync(x => x.Id == mat.ProductTypeId);
+
+            var title = $"Material Requirement: {reqType?.Name}, quantity {mat.Quantity ?? 0}";
+            var options = (await GetMaterialOptions(mat.ProductTypeId, mat.Quantity))
+                .Select(s => new RequirementData.Option(s.Id, s.ToString() , s))
+                .ToArray();
+            results.Add(new RequirementData(mat.Id, title, RequirementData.ReqType.Material, options));
+        }
+
+        foreach (var toolReq in data.ToolRequirements)
+        {
+            if (toolReq.Type is ToolRequirementType.Released) continue;
+            var capacity = toolReq.Type is ToolRequirementType.UsedOnly ? 0 : (toolReq.CapacityTaken ?? 0);
+            
+            var reqType = await _db.ToolTypes.AsNoTracking().FirstOrDefaultAsync(x => x.Id == toolReq.ToolTypeId);
+
+            var title = $"Tooling Requirement: {reqType?.Name}";
+            if (capacity > 0) title += $", {capacity} capacity";
+            
+            var options = (await GetToolOptions(toolReq.ToolTypeId, capacity))
+                .Select(s => new RequirementData.Option(s.Id, s.ToString(), s))
+                .ToArray();
+            results.Add(new RequirementData(toolReq.Id, title, RequirementData.ReqType.Tool, options));
+        }
+
+        return results;
+    }
+    
+    private async Task<RouteOpAndData<TProductType, TUnitState, TRouteOperation>> GetOpAndData(int routeOpId)
     {
         var op = await  _db.RouteOperations.FindAsync(routeOpId);
         if (op is null) throw new KeyNotFoundException();
@@ -362,7 +398,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         }
 
         await _db.ToolRequirements.AddRangeAsync(toolRequirements);
-
+        
         foreach (var req in materialRequirements)
         {
             req.Id = 0;
@@ -370,6 +406,45 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         }
 
         await _db.MaterialRequirements.AddRangeAsync(materialRequirements);
+    }
+
+    
+    private async Task<TProductUnit[]> GetMaterialOptions(int typeId, int? quantity)
+    {
+        var qty = quantity ?? 0;
+        
+        var candidates = await _db.Units.AsNoTracking()
+            .Where(u => u.ProductTypeId == typeId && !u.Archived && u.Quantity >= qty)
+            .ToArrayAsync();
+
+        var ids = candidates.Select(c => c.Id).ToHashSet();
+        var consumed = await _db.MaterialClaims.AsNoTracking()
+            .Where(x => ids.Contains(x.ProductUnitId))
+            .GroupBy(x => x.ProductUnitId)
+            .Select(g => new { Id = g.Key, Sum = g.Sum(x => x.QuantityConsumed ?? 0) })
+            .ToDictionaryAsync(x => x.Id, x => x.Sum);
+        
+        foreach (var id in ids.Where(id => !consumed.ContainsKey(id))) consumed[id] = 0;
+
+        return candidates.Where(c => c.Quantity - consumed[c.Id] >= qty).ToArray();
+    }
+
+    private async Task<Tool[]> GetToolOptions(int toolTypeId, int? capacity)
+    {
+        var candidates = await _db.Tools.AsNoTracking()
+            .Where(t => !t.Retired && t.TypeId == toolTypeId)
+            .ToArrayAsync();
+
+        var ids = candidates.Select(c => c.Id).ToHashSet();
+        var consumed = await _db.ToolClaims.AsNoTracking()
+            .Where(x => !x.Released && ids.Contains(x.ToolId))
+            .GroupBy(x => x.ToolId)
+            .Select(g => new { Id = g.Key, Sum = g.Sum(x => x.CapacityTaken ?? 0) })
+            .ToDictionaryAsync(x => x.Id, x => x.Sum);
+
+        foreach (var id in ids.Where(id => !consumed.ContainsKey(id))) consumed[id] = 0;
+        
+        return candidates.Where(c => c.Capacity - consumed[c.Id] >= (capacity ?? 0)).ToArray();
     }
 
 }
