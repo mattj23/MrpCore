@@ -19,4 +19,13 @@ public class StateRelations<TUnitState> where TUnitState : UnitStateBase
     public IReadOnlyCollection<TUnitState> Removes { get; }
     public IReadOnlyCollection<TUnitState> Needs { get; }
     public IReadOnlyCollection<TUnitState> BlockedBy { get; }
+
+    public static StateRelations<TUnitState> Empty()
+    {
+        return new StateRelations<TUnitState>(
+            Enumerable.Empty<TUnitState>(),
+            Enumerable.Empty<TUnitState>(),
+            Enumerable.Empty<TUnitState>(),
+            Enumerable.Empty<TUnitState>());
+    }
 }

@@ -16,5 +16,7 @@ public class ProductTypeBase
 
     public int UnitQuantity { get; set; }
     
+    public bool Consumable { get; set; }
+    
     public int? NamespaceId { get; set; }
 }
