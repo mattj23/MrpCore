@@ -21,16 +21,19 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
     where TOperationResult : OperationResultBase<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation>
 {
     private readonly TOperationResult[] _results;
+    private readonly TProductUnit _unit;
     private readonly IReadOnlyDictionary<int, TUnitOperation> _operations;
     private readonly IReadOnlyDictionary<int, StateRelations<TUnitState>> _stateChanges;
+    private readonly MaterialClaim[] _materialClaims;
 
-    public UnitRoute(int unitId, TOperationResult[] results, TUnitOperation[] operations, 
-        IReadOnlyDictionary<int, StateRelations<TUnitState>> stateChanges)
+    public UnitRoute(TProductUnit unit, TOperationResult[] results, TUnitOperation[] operations, 
+        IReadOnlyDictionary<int, StateRelations<TUnitState>> stateChanges, MaterialClaim[] materialClaims)
     {
-        UnitId = unitId;
+        _unit = unit;
         _results = results.OrderBy(o => o.UtcTime).ToArray();
         _operations = operations.ToDictionary(o => o.Id, o => o);
         _stateChanges = stateChanges;
+        _materialClaims = materialClaims;
 
         foreach (var r in _results)
         {
@@ -40,12 +43,22 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
         RouteOperations = _operations.Values.Select(o => o.RouteOperation)
             .ToDictionary(o => o.RootId, o => o);
         
+        // Determine the material quantity left on this unit
+        if (Unit.Type!.Consumable && Unit.Quantity > 0)
+        {
+            RemainingQuantity = _unit.Quantity - (_materialClaims.Select(c => c.QuantityConsumed).Sum() ?? 0);
+        }
+        
         Calculate();
 
         NextOperation = _operations.Values.FirstOrDefault(o => o.RouteOperationId == NextRouteOperation?.Id);
     }
     
-    public int UnitId { get; }
+    public int RemainingQuantity { get; }
+
+    public int UnitId => _unit.Id;
+
+    public TProductUnit Unit => _unit;
 
     public TRouteOperation? NextRouteOperation { get; private set; }
     
@@ -243,6 +256,12 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
         {
             IsComplete = !ActiveStates.Any(s => s.BlocksCompletion);
             State = IsComplete ? WipState.Complete : WipState.Blocked;
+            
+            // Lastly, check for consumption
+            if (State is WipState.Complete && RemainingQuantity <= 0 && Unit.Quantity > 0)
+            {
+                State = WipState.Consumed;
+            }
         }
     }
 
@@ -288,5 +307,6 @@ public enum WipState
     FailedLast,
     Terminated,
     Blocked,
-    Complete
+    Complete,
+    Consumed
 }

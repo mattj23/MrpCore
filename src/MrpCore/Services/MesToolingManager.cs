@@ -29,6 +29,11 @@ public class MesToolingManager<TProductType, TUnitState, TProductUnit, TRouteOpe
         return _db.ToolTypes.AsNoTracking().Where(t => t.NamespaceId == namespaceId).ToArrayAsync();
     }
 
+    public Task<ToolType> GetType(int toolTypeId)
+    {
+        return _db.ToolTypes.AsNoTracking().FirstAsync(x => x.Id == toolTypeId);
+    }
+
     public async Task<bool> TypeHasBeenReferenced(int toolTypeId)
     {
         return (await _db.ToolRequirements.AsNoTracking().AnyAsync(r => r.ToolTypeId == toolTypeId)) ||

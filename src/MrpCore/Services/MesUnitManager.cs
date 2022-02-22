@@ -67,12 +67,16 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
     Task<UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult>>
     GetUnitRoute(int unitId)
     {
+        var target = await _db.Units.AsNoTracking()
+            .Include(u => u.Type)
+            .FirstOrDefaultAsync(u => u.Id == unitId);
+
+        if (target is null) throw new KeyNotFoundException();
+        
         var unitOps = await _db.UnitOperations.AsNoTracking()
             .Where(o => o.ProductUnitId == unitId)
             .Include(o => o.RouteOperation)
             .ToArrayAsync();
-
-        if (!unitOps.Any()) throw new KeyNotFoundException("No operations found for this unit");
 
         var routeOps = unitOps.Select(o => o.RouteOperationId).ToHashSet();
         var changes = new Dictionary<int, StateRelations<TUnitState>>();
@@ -83,8 +87,12 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         var results = await _db.OperationResults.AsNoTracking().Where(r => opIds.Contains(r.UnitOperationId))
             .ToArrayAsync();
 
+        var materialClaims = await _db.MaterialClaims.AsNoTracking()
+            .Where(c => c.ProductUnitId == unitId)
+            .ToArrayAsync();
+
         return new UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult>(
-            unitId, results, unitOps, changes);
+            target, results, unitOps, changes, materialClaims);
     }
 
     public async Task AddOpToRoute(int unitId, int routeOpId, Action<TUnitOperation>? modifyOperation=null)
@@ -164,9 +172,23 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         // Exit if the operation passed
         if (result.Pass)
         {
+            // Check for completion on consumable parts
+            if (unitRoute.Unit.Type!.Consumable && unitRoute.RemainingRoute().Length <= 1)
+            {
+                unitRoute = await GetUnitRoute(unitId);
+                if (unitRoute.State is WipState.Complete)
+                {
+                    var target = await _db.Units.FindAsync(unitId);
+                    target!.Quantity = unitRoute.Unit.Type!.UnitQuantity;
+                    await _db.SaveChangesAsync();
+                }
+            }
+
             _updater.UpdateResult(true, result.Id);
             _updater.UpdateUnit(ChangeType.Updated, unitId);
-        };
+            
+            return;
+        }
 
         // If the operation failed we may need to perform additional actions based on the route operation
         var routeOperation = await _db.RouteOperations.FindAsync(unitRoute.NextOperation.RouteOperationId);
