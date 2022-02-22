@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Net.Sockets;
+using Microsoft.EntityFrameworkCore;
 using MrpCore.Helpers;
 using MrpCore.Models;
 
@@ -55,15 +56,18 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         return (await _db.RouteOperations.Where(o => o.RootId == rootId).ToArrayAsync())
             .MaxBy(o => o.RootVersion);
     }
-    
+
     /// <summary>
     /// Add a new Route Operation to the data store. This will automatically set the RootId and RootVersion. Do not
     /// use this method to add an already existing operation.
     /// </summary>
     /// <param name="operation">A new TRouteOperation to be added to the data store</param>
     /// <param name="states"></param>
+    /// <param name="toolRequirements"></param>
+    /// <param name="materialRequirements"></param>
     /// <returns>The integer ID of the new added operation</returns>
-    public async Task<int> AddOp(TRouteOperation operation, StateRelations<TUnitState> states)
+    public async Task<int> AddOp(TRouteOperation operation, StateRelations<TUnitState> states, 
+        ToolRequirement[] toolRequirements, MaterialRequirement[] materialRequirements)
     {
         operation.Id = 0;
         operation.ThrowIfInvalid();
@@ -76,6 +80,8 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
 
         var joins = GetJoins(operation.Id, states);
         await _db.StatesToRoutes.AddRangeAsync(joins);
+
+        await AddRequirements(operation.Id, toolRequirements, materialRequirements);
         await _db.SaveChangesAsync();
         _updater.UpdateRoute(ChangeType.Updated, operation.ProductTypeId);
 
@@ -89,10 +95,13 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     /// <param name="operation"></param>
     /// <param name="parentId"></param>
     /// <param name="states"></param>
+    /// <param name="toolRequirements"></param>
+    /// <param name="materialRequirements"></param>
     /// <returns></returns>
     /// <exception cref="KeyNotFoundException"></exception>
     /// <exception cref="InvalidOperationException"></exception>
-    public async Task<int> AddCorrectiveOp(TRouteOperation operation, int parentId, StateRelations<TUnitState> states)
+    public async Task<int> AddCorrectiveOp(TRouteOperation operation, int parentId, StateRelations<TUnitState> states,
+        ToolRequirement[] toolRequirements, MaterialRequirement[] materialRequirements)
     {
         // Check for a valid parent
         var parent = await _db.RouteOperations.FindAsync(parentId);
@@ -106,7 +115,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         operation.CorrectiveId = parent.RootId;
         operation.AddBehavior = RouteOpAdd.Corrective;
 
-        return await AddOp(operation, states);
+        return await AddOp(operation, states, toolRequirements, materialRequirements);
     }
 
     /// <summary>
@@ -118,9 +127,12 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     /// <param name="id">The integer ID of the route operation to edit</param>
     /// <param name="modifyAction">An Action which modifies the route operation in some way</param>
     /// <param name="states"></param>
+    /// <param name="toolRequirements"></param>
+    /// <param name="materialRequirements"></param>
     /// <exception cref="InvalidOperationException">Thrown if the Route Operation is already referenced by a product unit</exception>
     /// <exception cref="KeyNotFoundException">Thrown if the operation ID cannot be found</exception>
-    public async Task UpdateOp(int id, Action<TRouteOperation> modifyAction, StateRelations<TUnitState> states)
+    public async Task UpdateOp(int id, Action<TRouteOperation> modifyAction, StateRelations<TUnitState> states,
+        ToolRequirement[] toolRequirements, MaterialRequirement[] materialRequirements)
     {
         if (await IsOpLocked(id))
             throw new InvalidOperationException(
@@ -131,11 +143,19 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         
         modifyAction.Invoke(item);
         item.ThrowIfInvalid();
+
+        var existingToolReqs = await _db.ToolRequirements.Where(r => r.RouteOperationId == id).ToArrayAsync();
+        var existingMaterialReqs = await _db.MaterialRequirements.Where(r => r.RouteOperationId == id).ToArrayAsync();
+        _db.ToolRequirements.RemoveRange(existingToolReqs);
+        _db.MaterialRequirements.RemoveRange(existingMaterialReqs);
         
         var existingJoins = _db.StatesToRoutes.Where(j => j.RouteOperationId == id).ToArray();
         _db.StatesToRoutes.RemoveRange(existingJoins);
+        
         var newJoins = GetJoins(id, states);
         await _db.StatesToRoutes.AddRangeAsync(newJoins);
+        
+        await AddRequirements(id, toolRequirements, materialRequirements);
         await _db.SaveChangesAsync();
         _updater.UpdateRoute(ChangeType.Updated, item.ProductTypeId);
     }
@@ -151,7 +171,8 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     /// <returns>the ID of the newly added route operation</returns>
     /// <exception cref="KeyNotFoundException">Thrown if the id cannot be found</exception>
     public async Task<int> IncrementOpVersion(int id, Action<TRouteOperation> modifyAction, 
-        StateRelations<TUnitState> states)
+        StateRelations<TUnitState> states, ToolRequirement[] toolRequirements, 
+        MaterialRequirement[] materialRequirements)
     {
         var item = await _db.RouteOperations.AsNoTracking().FirstOrDefaultAsync(o => o.Id == id);
         if (item is null) throw new KeyNotFoundException();
@@ -168,6 +189,8 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
 
         var newJoins = GetJoins(item.Id, states);
         await _db.StatesToRoutes.AddRangeAsync(newJoins);
+        await AddRequirements(item.Id, toolRequirements, materialRequirements);
+        
         await _db.SaveChangesAsync();
         _updater.UpdateRoute(ChangeType.Updated, item.ProductTypeId);
 
@@ -183,14 +206,15 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     /// <param name="states"></param>
     /// <returns>the ID of the route operation, will be the same as id if it was updated in place</returns>
     public async Task<int> UpdateOrIncrement(int id, Action<TRouteOperation> modifyAction, 
-        StateRelations<TUnitState> states)
+        StateRelations<TUnitState> states, ToolRequirement[] toolRequirements, 
+        MaterialRequirement[] materialRequirements)
     {
         if (await IsOpLocked(id))
         {
-            return await IncrementOpVersion(id, modifyAction, states);
+            return await IncrementOpVersion(id, modifyAction, states, toolRequirements, materialRequirements);
         }
 
-        await UpdateOp(id, modifyAction, states);
+        await UpdateOp(id, modifyAction, states, toolRequirements, materialRequirements);
         return id;
     }
 
@@ -326,6 +350,26 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
             RouteOperationId = routeOpId,
             UnitStateId = state.Id
         };
+    }
+
+    private async Task AddRequirements(int routeOpId, ToolRequirement[] toolRequirements, 
+        MaterialRequirement[] materialRequirements)
+    {
+        foreach (var req in toolRequirements)
+        {
+            req.Id = 0;
+            req.RouteOperationId = routeOpId;
+        }
+
+        await _db.ToolRequirements.AddRangeAsync(toolRequirements);
+
+        foreach (var req in materialRequirements)
+        {
+            req.Id = 0;
+            req.RouteOperationId = routeOpId;
+        }
+
+        await _db.MaterialRequirements.AddRangeAsync(materialRequirements);
     }
 
 }
