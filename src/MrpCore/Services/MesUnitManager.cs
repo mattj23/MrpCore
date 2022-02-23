@@ -37,6 +37,14 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         return _db.Units.FindAsync(unitId);
     }
     
+    public Task<Dictionary<int, TProductUnit>> GetUnitsByIds(HashSet<int> ids)
+    {
+        return _db.Units.AsNoTracking()
+            .Where(t => ids.Contains(t.Id))
+            .Include(t => t.Type)
+            .ToDictionaryAsync(t => t.Id, t => t);
+    }
+
     /// <summary>
     /// Adds a new product unit and creates its unit route from the product type's master route
     /// </summary>
@@ -246,6 +254,20 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         _updater.UpdateUnit(ChangeType.Updated, unitId);
     }
 
+    public async Task<OperationResultData> GetResultData(int resultId)
+    {
+        var toolClaims = await _db.ToolClaims.AsNoTracking()
+            .Where(c => c.ResultId == resultId)
+            .Include(c => c.Tool)
+            .ToArrayAsync();
+
+        var materialClaims = await _db.MaterialClaims.AsNoTracking()
+            .Where(c => c.ResultId == resultId)
+            .ToArrayAsync();
+
+        return new OperationResultData(toolClaims, materialClaims);
+    }
+    
     private async Task ReleaseTools(int routeOperationId, HashSet<int> unitOpResultIds)
     {
         // Are there any releasing tool requirements?
