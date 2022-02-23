@@ -162,6 +162,18 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         result.Pass = true;
         await _db.OperationResults.AddAsync(result);
         await _db.SaveChangesAsync();
+        
+        // Check if we terminated the route
+        var terminated = await _db.StatesToRoutes.AsNoTracking()
+            .Include(s => s.State)
+            .AnyAsync(s =>
+                s.Relation == OpRelation.Add && s.RouteOperationId == routeOpId && s.State.TerminatesRoute);
+        if (terminated)
+        {
+            var unitRoute = await GetUnitRoute(unitId);
+            await ReleaseAllToolClaims(unitRoute.Results.Select(r => r.Id).ToHashSet());
+        }
+            
         _updater.UpdateUnit(ChangeType.Updated, unitId);
     }
 
@@ -213,6 +225,17 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
                     target!.Quantity = unitRoute.Unit.Type!.UnitQuantity;
                     await _db.SaveChangesAsync();
                 }
+            }
+            
+            // Did we just terminate the route?  If so we need to release all open tool claims
+            var terminated = await _db.StatesToRoutes.AsNoTracking()
+                .Include(s => s.State)
+                .AnyAsync(s =>
+                    s.Relation == OpRelation.Add && s.RouteOperationId == routeOpId && s.State.TerminatesRoute);
+            if (terminated)
+            {
+                unitRoute = await GetUnitRoute(unitId);
+                await ReleaseAllToolClaims(unitRoute.Results.Select(r => r.Id).ToHashSet());
             }
 
             _updater.UpdateResult(true, result.Id);
@@ -266,6 +289,21 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
             .ToArrayAsync();
 
         return new OperationResultData(toolClaims, materialClaims);
+    }
+
+    private async Task ReleaseAllToolClaims(HashSet<int> unitOpResultIds)
+    {
+        var openClaims = await _db.ToolClaims
+            .Where(c => !c.Released && unitOpResultIds.Contains(c.ResultId))
+            .Include(c => c.Tool)
+            .ToArrayAsync();
+
+        foreach (var claim in openClaims)
+        {
+            claim.Released = true;
+        }
+
+        await _db.SaveChangesAsync();
     }
     
     private async Task ReleaseTools(int routeOperationId, HashSet<int> unitOpResultIds)
