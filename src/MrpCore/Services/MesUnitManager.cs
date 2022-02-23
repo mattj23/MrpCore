@@ -42,13 +42,20 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
     /// </summary>
     /// <param name="newUnit"></param>
     /// <param name="modifyOperations"></param>
-    public async Task AddUnit(TProductUnit newUnit, Action<TUnitOperation[]>? modifyOperations = null)
+    public async Task AddUnit(TProductUnit newUnit, Action<TUnitOperation[]>? modifyOperations = null,
+        Action<TProductUnit>? modifyUnit = null)
     {
         newUnit.Id = 0;
         if (newUnit.CreatedUtc == default) newUnit.CreatedUtc = DateTime.UtcNow;
         
         await _db.Units.AddAsync(newUnit);
         await _db.SaveChangesAsync();
+
+        if (modifyUnit is not null)
+        {
+            modifyUnit.Invoke(newUnit);
+            await _db.SaveChangesAsync();
+        }
         
         var route = await _routes.GetRoute(newUnit.ProductTypeId);
         var operations = route.DefaultOperations.Select(o => new TUnitOperation

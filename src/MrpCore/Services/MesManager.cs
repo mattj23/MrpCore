@@ -51,6 +51,15 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
 
     public ValueTask<TUnitState?> UnitStateById(int stateId) => _db.States.FindAsync(stateId);
 
+    public async Task UpdateProductType(int productTypeId, Action<TProductType> modify)
+    {
+        var target = await _db.Types.FindAsync(productTypeId);
+        if (target is null) throw new KeyNotFoundException();
+        
+        modify.Invoke(target);
+        await _db.SaveChangesAsync();
+    }
+
     public async Task UpdateState(int stateId, Action<TUnitState> modifyAction)
     {
         var target = await _db.States.FindAsync(stateId);
