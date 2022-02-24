@@ -16,7 +16,7 @@ public class ProductUnitBase<TProductType> where TProductType : ProductTypeBase
     
     public DateTime CreatedUtc { get; set; }
     
-    public int Quantity { get; set; }
+    public double? Quantity { get; set; }
     
     /// <summary>
     /// Gets or sets a flag which determines whether the item has been archived. Archived items do not get queried

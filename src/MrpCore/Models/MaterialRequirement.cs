@@ -18,10 +18,10 @@ public class MaterialRequirement
     public int ProductTypeId { get; set; }
     
     /// <summary>
-    /// Gets or sets an optional integer quantity which specifies how many units of the product type ID will be
-    /// consumed by this operation
+    /// Gets or sets an optional quantity which specifies how many units of the product type ID will be
+    /// consumed by this operation. If the quantity is null it is the same as 0 quantity consumed.
     /// </summary>
-    public int? Quantity { get; set; }
+    public double? Quantity { get; set; }
     
     /// <summary>
     /// Gets or sets a flag which determines if the material is consumed even if the operation is not successful

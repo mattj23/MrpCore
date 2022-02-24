@@ -4,6 +4,7 @@ using MrpCore.Helpers;
 using MrpCore.Models;
 
 namespace MrpCore.Services;
+using QtyFunc = Func<HashSet<int>, IReadOnlyDictionary<int, double>>;
 
 /// <summary>
 /// Manager class which specifically handles operations related to Route Operations/master routes.
@@ -312,7 +313,8 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         );
     }
 
-    public async Task<IReadOnlyCollection<RequirementData>> GetRequirementsFor(int routeOpId, bool pass)
+    public async Task<IReadOnlyCollection<RequirementData>> GetRequirementsFor(int routeOpId, bool pass,
+        Func<HashSet<int>, Dictionary<int, double>>? additionalMaterialConsumption = null)
     {
         var data = await GetOpAndData(routeOpId);
         var results = new List<RequirementData>();
@@ -408,28 +410,30 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         await _db.MaterialRequirements.AddRangeAsync(materialRequirements);
     }
 
-    
-    private async Task<TProductUnit[]> GetMaterialOptions(int typeId, int? quantity)
+
+    protected virtual async Task<TProductUnit[]> GetMaterialOptions(int typeId, double? quantity)
     {
-        var qty = quantity ?? 0;
+        var qty = quantity ?? 0.0;
         
+        // Find all non-archived units of the given type who had an actual quantity assigned
         var candidates = await _db.Units.AsNoTracking()
-            .Where(u => u.ProductTypeId == typeId && !u.Archived && u.Quantity >= qty)
+            .Where(u => u.ProductTypeId == typeId && !u.Archived && u.Quantity != null)
             .ToArrayAsync();
 
+        // Now, for each candidate unit, find the amount consumed by material claims
         var ids = candidates.Select(c => c.Id).ToHashSet();
         var consumed = await _db.MaterialClaims.AsNoTracking()
             .Where(x => ids.Contains(x.ProductUnitId))
             .GroupBy(x => x.ProductUnitId)
-            .Select(g => new { Id = g.Key, Sum = g.Sum(x => x.QuantityConsumed ?? 0) })
+            .Select(g => new { Id = g.Key, Sum = g.Sum(x => x.Quantity) })
             .ToDictionaryAsync(x => x.Id, x => x.Sum);
         
         foreach (var id in ids.Where(id => !consumed.ContainsKey(id))) consumed[id] = 0;
 
         return candidates.Where(c => c.Quantity - consumed[c.Id] >= qty).ToArray();
     }
-
-    private async Task<Tool[]> GetToolOptions(int toolTypeId, int? capacity)
+    
+    protected virtual async Task<Tool[]> GetToolOptions(int toolTypeId, int? capacity)
     {
         var candidates = await _db.Tools.AsNoTracking()
             .Where(t => !t.Retired && t.TypeId == toolTypeId)
@@ -439,7 +443,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         var consumed = await _db.ToolClaims.AsNoTracking()
             .Where(x => !x.Released && ids.Contains(x.ToolId))
             .GroupBy(x => x.ToolId)
-            .Select(g => new { Id = g.Key, Sum = g.Sum(x => x.CapacityTaken ?? 0) })
+            .Select(g => new { Id = g.Key, Sum = g.Sum(x => x.CapacityTaken) })
             .ToDictionaryAsync(x => x.Id, x => x.Sum);
 
         foreach (var id in ids.Where(id => !consumed.ContainsKey(id))) consumed[id] = 0;

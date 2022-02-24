@@ -15,7 +15,7 @@ public class ToolClaim
     
     public int ResultId { get; set; }
     
-    public int? CapacityTaken { get; set; }
+    public int CapacityTaken { get; set; }
     
     public bool Released { get; set; }
 }

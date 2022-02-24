@@ -50,9 +50,18 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
     /// </summary>
     /// <param name="newUnit"></param>
     /// <param name="modifyOperations"></param>
+    /// <param name="modifyUnit"></param>
     public async Task AddUnit(TProductUnit newUnit, Action<TUnitOperation[]>? modifyOperations = null,
         Action<TProductUnit>? modifyUnit = null)
     {
+        // Verify that the route has at least one default step before allowing the unit to be added
+        var route = await _routes.GetRoute(newUnit.ProductTypeId);
+        if (!route.DefaultOperations.Any())
+        {
+            throw new InvalidOperationException(
+                $"This product type has no default route operations, so a route cannot be constructed");
+        }
+        
         newUnit.Id = 0;
         if (newUnit.CreatedUtc == default) newUnit.CreatedUtc = DateTime.UtcNow;
         
@@ -65,7 +74,6 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
             await _db.SaveChangesAsync();
         }
         
-        var route = await _routes.GetRoute(newUnit.ProductTypeId);
         var operations = route.DefaultOperations.Select(o => new TUnitOperation
         {
             ProductUnitId = newUnit.Id,
@@ -102,12 +110,17 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         var results = await _db.OperationResults.AsNoTracking().Where(r => opIds.Contains(r.UnitOperationId))
             .ToArrayAsync();
 
-        var materialClaims = await _db.MaterialClaims.AsNoTracking()
-            .Where(c => c.ProductUnitId == unitId)
-            .ToArrayAsync();
+        var consumed = await GetQtyConsumed(unitId);
 
         return new UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult>(
-            target, results, unitOps, changes, materialClaims);
+            target, results, unitOps, changes, consumed);
+    }
+
+    protected virtual Task<double> GetQtyConsumed(int unitId)
+    {
+        return _db.MaterialClaims.AsNoTracking()
+            .Where(c => c.ProductUnitId == unitId)
+            .SumAsync(c => c.Quantity);
     }
 
     public async Task AddOpToRoute(int unitId, int routeOpId, Action<TUnitOperation>? modifyOperation=null)
@@ -381,7 +394,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
                     await _db.MaterialClaims.AddAsync(new MaterialClaim
                     {
                         ProductUnitId = match.SelectedId,
-                        QuantityConsumed = originalMatReq.Quantity,
+                        Quantity = originalMatReq.Quantity ?? 0.0,
                         ResultId = resultId
                     });
                     updated = true;
@@ -392,7 +405,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
                     await _db.ToolClaims.AddAsync(new ToolClaim
                     {
                         ToolId = match.SelectedId,
-                        CapacityTaken = originalToolReq.CapacityTaken,
+                        CapacityTaken = originalToolReq.CapacityTaken ?? 0,
                         ResultId = resultId,
                         Released = originalToolReq.Type is not ToolRequirementType.Occupied
                     });

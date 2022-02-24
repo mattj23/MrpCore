@@ -35,13 +35,13 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
                 TOperationResult>(_db, _updater);
     }
 
-    public MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult>
+    public virtual MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult>
         RouteManager { get; }
     
-    public MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult>
+    public virtual MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult>
         UnitManager { get; }
     
-    public MesToolingManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult>
+    public virtual MesToolingManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult>
         ToolManager { get; }
 
     public IQueryable<Namespace> Namespaces => _db.Namespaces; 

@@ -11,5 +11,5 @@ public class MaterialClaim
     
     public int ResultId { get; set; }
     
-    public int? QuantityConsumed { get; set; }
+    public double Quantity { get; set; }
 }

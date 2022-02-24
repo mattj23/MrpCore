@@ -24,16 +24,16 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
     private readonly TProductUnit _unit;
     private readonly IReadOnlyDictionary<int, TUnitOperation> _operations;
     private readonly IReadOnlyDictionary<int, StateRelations<TUnitState>> _stateChanges;
-    private readonly MaterialClaim[] _materialClaims;
+    private readonly double _quantityConsumed;
 
     public UnitRoute(TProductUnit unit, TOperationResult[] results, TUnitOperation[] operations, 
-        IReadOnlyDictionary<int, StateRelations<TUnitState>> stateChanges, MaterialClaim[] materialClaims)
+        IReadOnlyDictionary<int, StateRelations<TUnitState>> stateChanges, double quantityConsumed)
     {
         _unit = unit;
         _results = results.OrderBy(o => o.UtcTime).ToArray();
         _operations = operations.ToDictionary(o => o.Id, o => o);
         _stateChanges = stateChanges;
-        _materialClaims = materialClaims;
+        _quantityConsumed = quantityConsumed;
 
         foreach (var r in _results)
         {
@@ -41,20 +41,15 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
         }
         
         RouteOperations = _operations.Values.Select(o => o.RouteOperation)
-            .ToDictionary(o => o.RootId, o => o);
-        
-        // Determine the material quantity left on this unit
-        if (Unit.Type!.Consumable && Unit.Quantity > 0)
-        {
-            RemainingQuantity = _unit.Quantity - (_materialClaims.Select(c => c.QuantityConsumed).Sum() ?? 0);
-        }
-        
+            .ToDictionary(o => o!.RootId, o => o!);
+
+        ActiveStates = CalculateActiveStates();
         Calculate();
 
         NextOperation = _operations.Values.FirstOrDefault(o => o.RouteOperationId == NextRouteOperation?.Id);
     }
-    
-    public int RemainingQuantity { get; }
+
+    public double RemainingQuantity => _unit.Quantity ?? 0 - _quantityConsumed;
 
     public int UnitId => _unit.Id;
 
@@ -190,10 +185,8 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
             .ToArray();
     }
 
-    private void Calculate()
+    private TUnitState[] CalculateActiveStates()
     {
-        IsComplete = false;
-        
         // Compute the currently active states on the unit
         var states = new HashSet<TUnitState>();
         foreach (var result in _results.OrderBy(r => r.UtcTime).Where(r => r.Pass))
@@ -207,7 +200,13 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
             foreach (var s in _stateChanges[routeId].Removes)
                 states.Remove(s);
         }
-        ActiveStates = states.ToArray();
+        return states.ToArray();
+    }
+
+    private void Calculate()
+    {
+        IsComplete = false;
+        
         if (ActiveStates.Any(s => s.TerminatesRoute))
         {
             State = WipState.Terminated;
