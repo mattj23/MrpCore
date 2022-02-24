@@ -177,12 +177,13 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         _updater.UpdateUnit(ChangeType.Updated, unitId);
     }
 
-    public async Task ApplyResult(int unitId, int opId, TOperationResult result,
+    public async Task<TOperationResult> ApplyResult(int unitId, int opId, TOperationResult result,
         RequirementSelect[]? selects=null,
         Action<TUnitOperation[]>? modifyCorrective=null, 
-        Action<TUnitOperation>? modifySpecial = null)
+        Action<TUnitOperation>? modifySpecial = null,
+        UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult>? unitRoute = null)
     {
-        var unitRoute = await GetUnitRoute(unitId);
+        unitRoute ??= await GetUnitRoute(unitId);
 
         if (unitRoute.NextOperation?.Id != opId)
             throw new ArgumentException("The unit operation ID specified is not the next operation which needs to " +
@@ -241,7 +242,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
             _updater.UpdateResult(true, result.Id);
             _updater.UpdateUnit(ChangeType.Updated, unitId);
             
-            return;
+            return result;
         }
 
         // If the operation failed we may need to perform additional actions based on the route operation
@@ -275,6 +276,8 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         
         _updater.UpdateResult(false, result.Id);
         _updater.UpdateUnit(ChangeType.Updated, unitId);
+
+        return result;
     }
 
     public async Task<OperationResultData> GetResultData(int resultId)
