@@ -49,7 +49,7 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
         NextOperation = _operations.Values.FirstOrDefault(o => o.RouteOperationId == NextRouteOperation?.Id);
     }
 
-    public double RemainingQuantity => _unit.Quantity ?? 0 - _quantityConsumed;
+    public double RemainingQuantity => (_unit.Quantity ?? 0) - _quantityConsumed;
 
     public int UnitId => _unit.Id;
 
@@ -301,11 +301,11 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
 
 public enum WipState
 {
-    NotStarted,
-    InProcess,
-    FailedLast,
-    Terminated,
-    Blocked,
-    Complete,
-    Consumed
+    NotStarted=0,
+    InProcess=1,
+    FailedLast=2,
+    Terminated=3,
+    Blocked=4,
+    Complete=5,
+    Consumed=6
 }
