@@ -51,6 +51,8 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
 
     public double RemainingQuantity => (_unit.Quantity ?? 0) - _quantityConsumed;
 
+    public double Consumed => _quantityConsumed;
+
     public int UnitId => _unit.Id;
 
     public TProductUnit Unit => _unit;
@@ -59,6 +61,7 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
     
     public TUnitOperation? NextOperation { get; }
     
+    // TODO: explain what this means, since it's complicated
     public bool IsComplete { get; private set; }
 
     public IReadOnlyDictionary<int, TUnitOperation> OperationsById => _operations;

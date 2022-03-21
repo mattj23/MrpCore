@@ -293,6 +293,22 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         return result;
     }
 
+    public Task<MaterialClaim[]> GetMaterialClaims(int unitId)
+    {
+        return _db.MaterialClaims.AsNoTracking()
+            .Where(c => c.ProductUnitId == unitId)
+            .ToArrayAsync();
+    }
+
+    public async Task UpdateUnit(int unitId, Action<TProductUnit> modifyAction)
+    {
+        var target = await _db.Units.FindAsync(unitId);
+        if (target is null) throw new KeyNotFoundException();
+
+        modifyAction(target);
+        await _db.SaveChangesAsync();
+    }
+
     public async Task<OperationResultData> GetResultData(int resultId)
     {
         var toolClaims = await _db.ToolClaims.AsNoTracking()
