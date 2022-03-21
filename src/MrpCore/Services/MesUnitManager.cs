@@ -230,7 +230,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         if (result.Pass)
         {
             // Check for completion on consumable parts
-            if (unitRoute.Unit.Type!.Consumable && unitRoute.RemainingRoute().Length <= 1)
+            if (unitRoute.RemainingRoute().Length <= 1)
             {
                 unitRoute = await GetUnitRoute(unitId);
                 if (unitRoute.State is WipState.Complete)
