@@ -19,7 +19,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
     private readonly MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation,
         TOperationResult> _routes;
 
-    private readonly IMesUpdater _updater;
+    protected readonly IMesUpdater Updater;
     
     public MesUnitManager(
         MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult> db, 
@@ -27,7 +27,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
     {
         _db = db;
         _routes = routes;
-        _updater = updater;
+        Updater = updater;
     }
 
     public IQueryable<TProductUnit> Units => _db.Units.AsNoTracking();
@@ -83,7 +83,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         modifyOperations?.Invoke(operations);
         await _db.UnitOperations.AddRangeAsync(operations);
         await _db.SaveChangesAsync();
-        _updater.UpdateUnit(ChangeType.Created, newUnit.Id);
+        Updater.UpdateUnit(ChangeType.Created, newUnit.Id);
     }
     
     public async
@@ -142,9 +142,22 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         
         modifyOperation?.Invoke(operation);
         await _db.SaveChangesAsync();
-        _updater.UpdateUnit(ChangeType.Updated, unitId);
+        Updater.UpdateUnit(ChangeType.Updated, unitId);
     }
         
+    protected async Task SetArchiveState(int unitId, bool archived, bool skipUpdate = false)
+    {
+        var target = await _db.Units.FindAsync(unitId);
+        if (target is null) throw new KeyNotFoundException();
+
+        if (target.Archived == archived) return;
+
+        target.Archived = archived;
+        await _db.SaveChangesAsync();
+        if (!skipUpdate)
+            Updater.UpdateUnit(ChangeType.Updated, unitId);
+    }
+
     public async Task ApplySpecialOp(int unitId, int routeOpId, TOperationResult result,
         Action<TUnitOperation>? modifyOperation = null)
     {
@@ -185,9 +198,10 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         {
             var unitRoute = await GetUnitRoute(unitId);
             await ReleaseAllToolClaims(unitRoute.Results.Select(r => r.Id).ToHashSet());
+            await SetArchiveState(unitId, true, true);
         }
             
-        _updater.UpdateUnit(ChangeType.Updated, unitId);
+        Updater.UpdateUnit(ChangeType.Updated, unitId);
     }
 
     public async Task<TOperationResult> ApplyResult(int unitId, int opId, TOperationResult result,
@@ -252,8 +266,8 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
                 await ReleaseAllToolClaims(unitRoute.Results.Select(r => r.Id).ToHashSet());
             }
 
-            _updater.UpdateResult(true, result.Id);
-            _updater.UpdateUnit(ChangeType.Updated, unitId);
+            Updater.UpdateResult(true, result.Id);
+            Updater.UpdateUnit(ChangeType.Updated, unitId);
             
             return result;
         }
@@ -287,8 +301,8 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
 
         await _db.SaveChangesAsync();
         
-        _updater.UpdateResult(false, result.Id);
-        _updater.UpdateUnit(ChangeType.Updated, unitId);
+        Updater.UpdateResult(false, result.Id);
+        Updater.UpdateUnit(ChangeType.Updated, unitId);
 
         return result;
     }
@@ -306,6 +320,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         if (target is null) throw new KeyNotFoundException();
 
         modifyAction(target);
+        Updater.UpdateUnit(ChangeType.Updated, unitId);
         await _db.SaveChangesAsync();
     }
 
