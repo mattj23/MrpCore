@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MrpCore.Models;
 
-public class Tool
+public class ToolBase<TToolType> where TToolType : ToolTypeBase
 {
     [Key]
     public int Id { get; set; }
@@ -17,7 +17,7 @@ public class Tool
     public int TypeId { get; set; }
     
     [ForeignKey(nameof(TypeId))]
-    public ToolType? Type { get; set; }
+    public TToolType? Type { get; set; }
     
     public bool Retired { get; set; }
 

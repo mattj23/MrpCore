@@ -1,13 +1,13 @@
-﻿using System.Net.Sockets;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using MrpCore.Helpers;
 using MrpCore.Models;
 
 namespace MrpCore.Services;
+
 using QtyFunc = Func<HashSet<int>, IReadOnlyDictionary<int, double>>;
 
 /// <summary>
-/// Manager class which specifically handles operations related to Route Operations/master routes.
+///     Manager class which specifically handles operations related to Route Operations/master routes.
 /// </summary>
 /// <typeparam name="TProductType"></typeparam>
 /// <typeparam name="TUnitState"></typeparam>
@@ -15,30 +15,40 @@ using QtyFunc = Func<HashSet<int>, IReadOnlyDictionary<int, double>>;
 /// <typeparam name="TRouteOperation"></typeparam>
 /// <typeparam name="TUnitOperation"></typeparam>
 /// <typeparam name="TOperationResult"></typeparam>
-public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult>
+/// <typeparam name="TToolClaim"></typeparam>
+/// <typeparam name="TToolType"></typeparam>
+/// <typeparam name="TTool"></typeparam>
+/// <typeparam name="TToolRequirement"></typeparam>
+public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult,
+    TToolType, TTool, TToolClaim, TToolRequirement>
     where TUnitState : UnitStateBase
     where TProductType : ProductTypeBase
     where TProductUnit : ProductUnitBase<TProductType>
     where TRouteOperation : RouteOperationBase<TProductType>
     where TUnitOperation : UnitOperationBase<TProductType, TProductUnit, TRouteOperation>, new()
     where TOperationResult :
-    OperationResultBase<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation>
+    OperationResultBase<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation>, new()
+    where TToolType : ToolTypeBase
+    where TToolRequirement : ToolRequirementBase
+    where TTool : ToolBase<TToolType>
+    where TToolClaim : ToolClaimBase<TToolType, TTool>
 {
     private readonly MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation,
-        TOperationResult> _db;
+        TOperationResult, TToolType, TTool, TToolClaim, TToolRequirement> _db;
 
     private readonly IMesUpdater _updater;
-    
+
     public MesRouteManager(
-        MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult> db, IMesUpdater updater)
+        MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult,
+            TToolType, TTool, TToolClaim, TToolRequirement> db, IMesUpdater updater)
     {
         _db = db;
         _updater = updater;
     }
 
     /// <summary>
-    /// Queries to determine if any TUnitOperation references the Route Operation with the specified ID. If the
-    /// operation has been referenced it is no longer editable.
+    ///     Queries to determine if any TUnitOperation references the Route Operation with the specified ID. If the
+    ///     operation has been referenced it is no longer editable.
     /// </summary>
     /// <param name="routeOperationId">The ID of the operation being checked</param>
     /// <returns>true if the route operation cannot be edited, false if it is safe to edit</returns>
@@ -48,7 +58,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     }
 
     /// <summary>
-    /// Get the highest version of a route operation by its root ID, regardless of whether it is active/archived.
+    ///     Get the highest version of a route operation by its root ID, regardless of whether it is active/archived.
     /// </summary>
     /// <param name="rootId"></param>
     /// <returns></returns>
@@ -59,20 +69,20 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     }
 
     /// <summary>
-    /// Add a new Route Operation to the data store. This will automatically set the RootId and RootVersion. Do not
-    /// use this method to add an already existing operation.
+    ///     Add a new Route Operation to the data store. This will automatically set the RootId and RootVersion. Do not
+    ///     use this method to add an already existing operation.
     /// </summary>
     /// <param name="operation">A new TRouteOperation to be added to the data store</param>
     /// <param name="states"></param>
     /// <param name="toolRequirements"></param>
     /// <param name="materialRequirements"></param>
     /// <returns>The integer ID of the new added operation</returns>
-    public virtual async Task<int> AddOp(TRouteOperation operation, StateRelations<TUnitState> states, 
-        ToolRequirement[] toolRequirements, MaterialRequirement[] materialRequirements)
+    public virtual async Task<int> AddOp(TRouteOperation operation, StateRelations<TUnitState> states,
+        TToolRequirement[] toolRequirements, MaterialRequirement[] materialRequirements)
     {
         operation.Id = 0;
         operation.ThrowIfInvalid();
-        
+
         await _db.RouteOperations.AddAsync(operation);
         await _db.SaveChangesAsync();
 
@@ -90,8 +100,8 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     }
 
     /// <summary>
-    /// Adds a new corrective operation to a parent route operation with corrective failure behavior. Handles the
-    /// setting of the internal `CorrectiveId` and `AddBehavior`.
+    ///     Adds a new corrective operation to a parent route operation with corrective failure behavior. Handles the
+    ///     setting of the internal `CorrectiveId` and `AddBehavior`.
     /// </summary>
     /// <param name="operation"></param>
     /// <param name="parentId"></param>
@@ -101,18 +111,17 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     /// <returns></returns>
     /// <exception cref="KeyNotFoundException"></exception>
     /// <exception cref="InvalidOperationException"></exception>
-    public virtual async Task<int> AddCorrectiveOp(TRouteOperation operation, int parentId, StateRelations<TUnitState> states,
-        ToolRequirement[] toolRequirements, MaterialRequirement[] materialRequirements)
+    public virtual async Task<int> AddCorrectiveOp(TRouteOperation operation, int parentId,
+        StateRelations<TUnitState> states,
+        TToolRequirement[] toolRequirements, MaterialRequirement[] materialRequirements)
     {
         // Check for a valid parent
         var parent = await _db.RouteOperations.FindAsync(parentId);
         if (parent is null) throw new KeyNotFoundException();
         if (parent.FailureBehavior is not (RouteOpFailure.CorrectiveProceed or RouteOpFailure.CorrectiveReturn))
-        {
             throw new InvalidOperationException(
                 "A corrective operation must be added to a parent with corrective failure behavior");
-        }
-        
+
         operation.CorrectiveId = parent.RootId;
         operation.AddBehavior = RouteOpAdd.Corrective;
 
@@ -120,10 +129,10 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     }
 
     /// <summary>
-    /// Modifies a Route Operation by fetching it from the data store and invoking an Action on it. The operation will
-    /// throw an exception if the Route Operation is already referenced. Use IsOpLocked(id) to determine ahead of time
-    /// if an operation is safe to modify. The addedStates and removedStates arguments will replace the existing
-    /// relations for the Route Operation.
+    ///     Modifies a Route Operation by fetching it from the data store and invoking an Action on it. The operation will
+    ///     throw an exception if the Route Operation is already referenced. Use IsOpLocked(id) to determine ahead of time
+    ///     if an operation is safe to modify. The addedStates and removedStates arguments will replace the existing
+    ///     relations for the Route Operation.
     /// </summary>
     /// <param name="id">The integer ID of the route operation to edit</param>
     /// <param name="modifyAction">An Action which modifies the route operation in some way</param>
@@ -132,16 +141,16 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     /// <param name="materialRequirements"></param>
     /// <exception cref="InvalidOperationException">Thrown if the Route Operation is already referenced by a product unit</exception>
     /// <exception cref="KeyNotFoundException">Thrown if the operation ID cannot be found</exception>
-    public async Task UpdateOp(int id, Action<TRouteOperation> modifyAction, StateRelations<TUnitState> states,
-        ToolRequirement[] toolRequirements, MaterialRequirement[] materialRequirements)
+    public virtual async Task UpdateOp(int id, Action<TRouteOperation> modifyAction, StateRelations<TUnitState> states,
+        TToolRequirement[] toolRequirements, MaterialRequirement[] materialRequirements)
     {
         if (await IsOpLocked(id))
             throw new InvalidOperationException(
                 "This route operation has already been referenced and cannot be edited.");
-        
+
         var item = await _db.RouteOperations.FindAsync(id);
         if (item is null) throw new KeyNotFoundException();
-        
+
         modifyAction.Invoke(item);
         item.ThrowIfInvalid();
 
@@ -149,37 +158,39 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         var existingMaterialReqs = await _db.MaterialRequirements.Where(r => r.RouteOperationId == id).ToArrayAsync();
         _db.ToolRequirements.RemoveRange(existingToolReqs);
         _db.MaterialRequirements.RemoveRange(existingMaterialReqs);
-        
+
         var existingJoins = _db.StatesToRoutes.Where(j => j.RouteOperationId == id).ToArray();
         _db.StatesToRoutes.RemoveRange(existingJoins);
-        
+
         var newJoins = GetJoins(id, states);
         await _db.StatesToRoutes.AddRangeAsync(newJoins);
-        
+
         await AddRequirements(id, toolRequirements, materialRequirements);
         await _db.SaveChangesAsync();
         _updater.UpdateRoute(ChangeType.Updated, item.ProductTypeId);
     }
 
     /// <summary>
-    /// "Updates" a Route Operation by creating a new version of and applying an Action which modifies the original.
-    /// Returns the ID of the new version.  This can be used as an alternative to UpdateOp in cases where the route
-    /// operation has already been referenced by a product unit.
+    ///     "Updates" a Route Operation by creating a new version of and applying an Action which modifies the original.
+    ///     Returns the ID of the new version.  This can be used as an alternative to UpdateOp in cases where the route
+    ///     operation has already been referenced by a product unit.
     /// </summary>
     /// <param name="id">The integer ID of the route operation to update</param>
     /// <param name="modifyAction">An Action which modifies the route operation in some way</param>
     /// <param name="states"></param>
+    /// <param name="toolRequirements"></param>
+    /// <param name="materialRequirements"></param>
     /// <returns>the ID of the newly added route operation</returns>
     /// <exception cref="KeyNotFoundException">Thrown if the id cannot be found</exception>
-    public async Task<int> IncrementOpVersion(int id, Action<TRouteOperation> modifyAction, 
-        StateRelations<TUnitState> states, ToolRequirement[] toolRequirements, 
+    public virtual async Task<int> IncrementOpVersion(int id, Action<TRouteOperation> modifyAction,
+        StateRelations<TUnitState> states, TToolRequirement[] toolRequirements,
         MaterialRequirement[] materialRequirements)
     {
         var item = await _db.RouteOperations.AsNoTracking().FirstOrDefaultAsync(o => o.Id == id);
         if (item is null) throw new KeyNotFoundException();
         var root = item.RootId;
         var version = item.RootVersion + 1;
-        
+
         modifyAction.Invoke(item);
         item.Id = 0;
         item.RootId = root;
@@ -191,7 +202,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         var newJoins = GetJoins(item.Id, states);
         await _db.StatesToRoutes.AddRangeAsync(newJoins);
         await AddRequirements(item.Id, toolRequirements, materialRequirements);
-        
+
         await _db.SaveChangesAsync();
         _updater.UpdateRoute(ChangeType.Updated, item.ProductTypeId);
 
@@ -199,74 +210,74 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     }
 
     /// <summary>
-    /// "Updates" a route operation by either using UpdateOp if the operation is free to be edited, or
-    /// IncrementOpVersion if it is not.
+    ///     "Updates" a route operation by either using UpdateOp if the operation is free to be edited, or
+    ///     IncrementOpVersion if it is not.
     /// </summary>
     /// <param name="id">The integer ID of the route operation to update</param>
     /// <param name="modifyAction">An Action which modifies the route operation in some way</param>
     /// <param name="states"></param>
+    /// <param name="toolRequirements"></param>
+    /// <param name="materialRequirements"></param>
     /// <returns>the ID of the route operation, will be the same as id if it was updated in place</returns>
-    public async Task<int> UpdateOrIncrement(int id, Action<TRouteOperation> modifyAction, 
-        StateRelations<TUnitState> states, ToolRequirement[] toolRequirements, 
+    public virtual async Task<int> UpdateOrIncrement(int id, Action<TRouteOperation> modifyAction,
+        StateRelations<TUnitState> states, TToolRequirement[] toolRequirements,
         MaterialRequirement[] materialRequirements)
     {
         if (await IsOpLocked(id))
-        {
             return await IncrementOpVersion(id, modifyAction, states, toolRequirements, materialRequirements);
-        }
 
         await UpdateOp(id, modifyAction, states, toolRequirements, materialRequirements);
         return id;
     }
 
     /// <summary>
-    /// Deletes a Route Operation by its id. Will fail if the Route Operation has already been referenced by a
-    /// Product Unit through a Unit Operation.
+    ///     Deletes a Route Operation by its id. Will fail if the Route Operation has already been referenced by a
+    ///     Product Unit through a Unit Operation.
     /// </summary>
     /// <param name="id">The ID of the route operation to delete</param>
     /// <exception cref="InvalidOperationException">Thrown if the operation has already been referenced</exception>
     /// <exception cref="KeyNotFoundException">Thrown if the route ID cannot be found</exception>
-    public async Task DeleteOp(int id)
+    public virtual async Task DeleteOp(int id)
     {
         if (await IsOpLocked(id))
             throw new InvalidOperationException(
                 "This route operation has already been referenced and cannot be deleted.");
-        
+
         var item = await _db.RouteOperations.FindAsync(id);
         if (item is null) throw new KeyNotFoundException();
-        
+
         var joins = _db.StatesToRoutes.Where(j => j.RouteOperationId == id).ToArray();
-        
+
         _db.StatesToRoutes.RemoveRange(joins);
         _db.RouteOperations.Remove(item);
         await _db.SaveChangesAsync();
-        
+
         _updater.UpdateRoute(ChangeType.Updated, item.ProductTypeId);
     }
 
     /// <summary>
-    /// Sets the `Archived` flag on a Route Operation, effectively deactivating it. This is the alternative to DeleteOp
-    /// if the operation has already been referenced.
+    ///     Sets the `Archived` flag on a Route Operation, effectively deactivating it. This is the alternative to DeleteOp
+    ///     if the operation has already been referenced.
     /// </summary>
     /// <param name="id">The ID of the route operation to deactivate</param>
     /// <exception cref="KeyNotFoundException">Thrown if the route ID cannot be found</exception>
-    public async Task ArchiveOp(int id)
+    public virtual async Task ArchiveOp(int id)
     {
         var item = await _db.RouteOperations.FindAsync(id);
         if (item is null) throw new KeyNotFoundException();
         item.Archived = true;
         await _db.SaveChangesAsync();
-        
+
         _updater.UpdateRoute(ChangeType.Updated, item.ProductTypeId);
     }
-    
+
     /// <summary>
-    /// Deletes or archives a Route Operation depending on whether or not it has already been referenced by a Product
-    /// Unit. Preferentially favors deletion if possible, using Archive only if deletion is not possible.
+    ///     Deletes or archives a Route Operation depending on whether or not it has already been referenced by a Product
+    ///     Unit. Preferentially favors deletion if possible, using Archive only if deletion is not possible.
     /// </summary>
     /// <param name="id">The ID of the route operation to deactivate</param>
     /// <exception cref="KeyNotFoundException">Thrown if the route ID cannot be found</exception>
-    public async Task DeleteOrArchiveOp(int id)
+    public virtual async Task DeleteOrArchiveOp(int id)
     {
         if (!await IsOpLocked(id))
         {
@@ -276,13 +287,13 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
 
         await ArchiveOp(id);
     }
-    
+
     /// <summary>
-    /// Build and retrieve a Route object representing the master route of a given product type.
+    ///     Build and retrieve a Route object representing the master route of a given product type.
     /// </summary>
     /// <param name="productTypeId">The ID of the product type to build the route for</param>
     /// <returns>Object representing the master route</returns>
-    public async Task<Route<TProductType, TUnitState, TRouteOperation>> GetRoute(int productTypeId)
+    public virtual async Task<Route<TProductType, TUnitState, TRouteOperation, TToolRequirement>> GetRoute(int productTypeId)
     {
         var routeOps = await _db.RouteOperations.AsNoTracking()
             .Where(r => r.ProductTypeId == productTypeId)
@@ -290,16 +301,13 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
 
         var routeOpIds = routeOps.Select(r => r.Id).ToHashSet();
 
-        var results = new List<RouteOpAndData<TProductType, TUnitState, TRouteOperation>>();
-        foreach (var id in routeOpIds)
-        {
-            results.Add(await GetOpAndData(id));
-        }
+        var results = new List<RouteOpAndData<TProductType, TUnitState, TRouteOperation, TToolRequirement>>();
+        foreach (var id in routeOpIds) results.Add(await GetOpAndData(id));
 
-        return new Route<TProductType, TUnitState, TRouteOperation>(productTypeId, results.ToArray());
+        return new Route<TProductType, TUnitState, TRouteOperation, TToolRequirement>(productTypeId, results.ToArray());
     }
 
-    public async Task<StateRelations<TUnitState>> GetStates(int routeOpId)
+    public virtual async Task<StateRelations<TUnitState>> GetStates(int routeOpId)
     {
         var joins = await _db.StatesToRoutes.AsNoTracking()
             .Where(s => s.RouteOperationId == routeOpId)
@@ -313,7 +321,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         );
     }
 
-    public async Task<IReadOnlyCollection<RequirementData>> GetRequirementsFor(int routeOpId, bool pass,
+    public virtual async Task<IReadOnlyCollection<RequirementData>> GetRequirementsFor(int routeOpId, bool pass,
         Func<HashSet<int>, Dictionary<int, double>>? additionalMaterialConsumption = null)
     {
         var data = await GetOpAndData(routeOpId);
@@ -326,7 +334,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
 
             var title = $"Material Requirement: {reqType?.Name}, quantity {mat.Quantity ?? 0}";
             var options = (await GetMaterialOptions(mat.ProductTypeId, mat.Quantity))
-                .Select(s => new RequirementData.Option(s.Id, s.ToString() , s))
+                .Select(s => new RequirementData.Option(s.Id, s.ToString(), s))
                 .ToArray();
             results.Add(new RequirementData(mat.Id, title, RequirementData.ReqType.Material, options));
         }
@@ -334,13 +342,13 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         foreach (var toolReq in data.ToolRequirements)
         {
             if (toolReq.Type is ToolRequirementType.Released) continue;
-            var capacity = toolReq.Type is ToolRequirementType.UsedOnly ? 0 : (toolReq.CapacityTaken ?? 0);
-            
+            var capacity = toolReq.Type is ToolRequirementType.UsedOnly ? 0 : toolReq.CapacityTaken ?? 0;
+
             var reqType = await _db.ToolTypes.AsNoTracking().FirstOrDefaultAsync(x => x.Id == toolReq.ToolTypeId);
 
             var title = $"Tooling Requirement: {reqType?.Name}";
             if (capacity > 0) title += $", {capacity} capacity";
-            
+
             var options = (await GetToolOptions(toolReq.ToolTypeId, capacity))
                 .Select(s => new RequirementData.Option(s.Id, s.ToString(), s))
                 .ToArray();
@@ -349,21 +357,22 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
 
         return results;
     }
-    
-    private async Task<RouteOpAndData<TProductType, TUnitState, TRouteOperation>> GetOpAndData(int routeOpId)
+
+    protected virtual async Task<RouteOpAndData<TProductType, TUnitState, TRouteOperation, TToolRequirement>> GetOpAndData(
+        int routeOpId)
     {
-        var op = await  _db.RouteOperations.FindAsync(routeOpId);
+        var op = await _db.RouteOperations.FindAsync(routeOpId);
         if (op is null) throw new KeyNotFoundException();
 
         var states = await GetStates(routeOpId);
         var toolReqs = await _db.ToolRequirements.Where(r => r.RouteOperationId == routeOpId).ToArrayAsync();
         var materialReqs = await _db.MaterialRequirements.Where(r => r.RouteOperationId == routeOpId).ToArrayAsync();
 
-        return new RouteOpAndData<TProductType, TUnitState, TRouteOperation>(op, states, toolReqs, materialReqs);
+        return new RouteOpAndData<TProductType, TUnitState, TRouteOperation, TToolRequirement>(op, states, toolReqs,
+            materialReqs);
     }
 
     /// <summary>
-    /// 
     /// </summary>
     /// <param name="routeOpId"></param>
     /// <param name="states"></param>
@@ -379,7 +388,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         return collection;
     }
 
-    private StateRoute<TProductType, TUnitState, TRouteOperation> ToJoin(TUnitState state, 
+    private StateRoute<TProductType, TUnitState, TRouteOperation> ToJoin(TUnitState state,
         OpRelation relation, int routeOpId)
     {
         return new StateRoute<TProductType, TUnitState, TRouteOperation>
@@ -390,7 +399,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         };
     }
 
-    private async Task AddRequirements(int routeOpId, ToolRequirement[] toolRequirements, 
+    protected virtual async Task AddRequirements(int routeOpId, TToolRequirement[] toolRequirements,
         MaterialRequirement[] materialRequirements)
     {
         foreach (var req in toolRequirements)
@@ -400,7 +409,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         }
 
         await _db.ToolRequirements.AddRangeAsync(toolRequirements);
-        
+
         foreach (var req in materialRequirements)
         {
             req.Id = 0;
@@ -414,7 +423,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     protected virtual async Task<TProductUnit[]> GetMaterialOptions(int typeId, double? quantity)
     {
         var qty = quantity ?? 0.0;
-        
+
         // Find all non-archived units of the given type who had an actual quantity assigned
         var candidates = await _db.Units.AsNoTracking()
             .Where(u => u.ProductTypeId == typeId && !u.Archived && u.Quantity != null)
@@ -427,13 +436,13 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
             .GroupBy(x => x.ProductUnitId)
             .Select(g => new { Id = g.Key, Sum = g.Sum(x => x.Quantity) })
             .ToDictionaryAsync(x => x.Id, x => x.Sum);
-        
+
         foreach (var id in ids.Where(id => !consumed.ContainsKey(id))) consumed[id] = 0;
 
         return candidates.Where(c => c.Quantity - consumed[c.Id] >= qty).ToArray();
     }
-    
-    protected virtual async Task<Tool[]> GetToolOptions(int toolTypeId, int? capacity)
+
+    protected virtual async Task<TTool[]> GetToolOptions(int toolTypeId, int? capacity)
     {
         var candidates = await _db.Tools.AsNoTracking()
             .Where(t => !t.Retired && t.TypeId == toolTypeId)
@@ -447,8 +456,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
             .ToDictionaryAsync(x => x.Id, x => x.Sum);
 
         foreach (var id in ids.Where(id => !consumed.ContainsKey(id))) consumed[id] = 0;
-        
+
         return candidates.Where(c => c.Capacity - consumed[c.Id] >= (capacity ?? 0)).ToArray();
     }
-
 }

@@ -2,14 +2,17 @@
 
 namespace MrpCore.Helpers;
 
-public class OperationResultData
+public class OperationResultData<TToolType, TTool, TToolClaim>
+    where TToolType : ToolTypeBase
+    where TTool : ToolBase<TToolType>
+    where TToolClaim : ToolClaimBase<TToolType, TTool>
 {
-    public OperationResultData(IReadOnlyCollection<ToolClaim> toolClaims, IReadOnlyCollection<MaterialClaim> materialClaims)
+    public OperationResultData(IReadOnlyCollection<TToolClaim> toolClaims, IReadOnlyCollection<MaterialClaim> materialClaims)
     {
         ToolClaims = toolClaims;
         MaterialClaims = materialClaims;
     }
 
-    public IReadOnlyCollection<ToolClaim> ToolClaims { get; }
+    public IReadOnlyCollection<TToolClaim> ToolClaims { get; }
     public IReadOnlyCollection<MaterialClaim> MaterialClaims { get; }
 }

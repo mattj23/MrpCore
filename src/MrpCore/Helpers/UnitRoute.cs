@@ -12,13 +12,15 @@ namespace MrpCore.Helpers;
 /// <typeparam name="TRouteOperation"></typeparam>
 /// <typeparam name="TUnitOperation"></typeparam>
 /// <typeparam name="TOperationResult"></typeparam>
-public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult>
+/// <typeparam name="TToolRequirement"></typeparam>
+public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult, TToolRequirement>
     where TUnitState : UnitStateBase
     where TProductType : ProductTypeBase
     where TProductUnit : ProductUnitBase<TProductType>
     where TRouteOperation : RouteOperationBase<TProductType>
     where TUnitOperation : UnitOperationBase<TProductType, TProductUnit, TRouteOperation>, new()
     where TOperationResult : OperationResultBase<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation>
+    where TToolRequirement : ToolRequirementBase
 {
     private readonly TOperationResult[] _results;
     private readonly TProductUnit _unit;
@@ -157,7 +159,7 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
     /// </summary>
     /// <param name="master"></param>
     /// <returns></returns>
-    public TRouteOperation[] AllowableOptionals(Route<TProductType, TUnitState, TRouteOperation> master)
+    public TRouteOperation[] AllowableOptionals(Route<TProductType, TUnitState, TRouteOperation, TToolRequirement> master)
     {
         if (State is WipState.Terminated) return Array.Empty<TRouteOperation>();
         
@@ -180,9 +182,11 @@ public class UnitRoute<TProductType, TUnitState, TProductUnit, TRouteOperation, 
     /// </summary>
     /// <param name="master"></param>
     /// <returns></returns>
-    public RouteOpAndData<TProductType, TUnitState, TRouteOperation>[] AllowableSpecials(Route<TProductType, TUnitState, TRouteOperation> master)
+    public RouteOpAndData<TProductType, TUnitState, TRouteOperation, TToolRequirement>[] 
+        AllowableSpecials(Route<TProductType, TUnitState, TRouteOperation, TToolRequirement> master)
     {
-        if (State is WipState.Terminated) return Array.Empty<RouteOpAndData<TProductType, TUnitState, TRouteOperation>>();
+        if (State is WipState.Terminated) 
+            return Array.Empty<RouteOpAndData<TProductType, TUnitState, TRouteOperation, TToolRequirement>>();
 
         return master.Special.Where(o => CanOpRun(o.States))
             .ToArray();

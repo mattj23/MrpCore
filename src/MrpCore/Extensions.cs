@@ -28,21 +28,23 @@ public static class Extensions
     public static bool IsStandard(this RouteOpAdd value) => value is RouteOpAdd.Default or RouteOpAdd.NotDefault;
     public static bool NotSpecial(this RouteOpAdd value) => value is not RouteOpAdd.Special;
 
-    public static string OpText<TProductType, TUnitState, TRouteOperation>(
-        this Route<TProductType, TUnitState, TRouteOperation> route, int routeOpId)
+    public static string OpText<TProductType, TUnitState, TRouteOperation, TToolRequirement>(
+        this Route<TProductType, TUnitState, TRouteOperation, TToolRequirement> route, int routeOpId)
         where TUnitState : UnitStateBase
         where TProductType : ProductTypeBase
         where TRouteOperation : RouteOperationBase<TProductType>
+        where TToolRequirement : ToolRequirementBase
     {
         var op = route.AllById[routeOpId].Op;
         return route.OpText(op);
     }
     
-    public static string OpText<TProductType, TUnitState, TRouteOperation>(
-        this Route<TProductType, TUnitState, TRouteOperation> route, TRouteOperation op)
+    public static string OpText<TProductType, TUnitState, TRouteOperation, TToolRequirement>(
+        this Route<TProductType, TUnitState, TRouteOperation, TToolRequirement> route, TRouteOperation op)
         where TUnitState : UnitStateBase
         where TProductType : ProductTypeBase
         where TRouteOperation : RouteOperationBase<TProductType>
+        where TToolRequirement : ToolRequirementBase
     {
         if (op.AddBehavior.IsStandard()) return $"OP {op.OpNumber}";
         if (op.AddBehavior == RouteOpAdd.Special) return "-";

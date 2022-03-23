@@ -2,11 +2,12 @@
 
 namespace MrpCore.Helpers;
 
-public class NamespaceData<TUnitState, TProductType> 
+public class NamespaceData<TUnitState, TProductType, TToolType> 
     where TUnitState : UnitStateBase
     where TProductType : ProductTypeBase
+    where TToolType : ToolTypeBase
 {
-    public NamespaceData(IReadOnlyCollection<TProductType> productTypes, IReadOnlyCollection<TUnitState> states, IReadOnlyCollection<ToolType> toolTypes)
+    public NamespaceData(IReadOnlyCollection<TProductType> productTypes, IReadOnlyCollection<TUnitState> states, IReadOnlyCollection<TToolType> toolTypes)
     {
         ProductTypes = productTypes;
         States = states;
@@ -15,5 +16,5 @@ public class NamespaceData<TUnitState, TProductType>
 
     public IReadOnlyCollection<TProductType> ProductTypes { get; }
     public IReadOnlyCollection<TUnitState> States { get; }
-    public IReadOnlyCollection<ToolType> ToolTypes { get; }
+    public IReadOnlyCollection<TToolType> ToolTypes { get; }
 }

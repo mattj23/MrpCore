@@ -4,7 +4,7 @@ using MrpCore.Models;
 namespace MrpCore;
 
 /// <summary>
-/// Manufacturing Execution System database context
+///     Manufacturing Execution System database context
 /// </summary>
 /// <typeparam name="TUnitOperation"></typeparam>
 /// <typeparam name="TProductUnit"></typeparam>
@@ -12,13 +12,23 @@ namespace MrpCore;
 /// <typeparam name="TProductType"></typeparam>
 /// <typeparam name="TUnitState"></typeparam>
 /// <typeparam name="TOperationResult"></typeparam>
-public class MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult> : DbContext
+/// <typeparam name="TToolType"></typeparam>
+/// <typeparam name="TTool"></typeparam>
+/// <typeparam name="TToolClaim"></typeparam>
+/// <typeparam name="TToolRequirement"></typeparam>
+public class MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult,
+    TToolType, TTool, TToolClaim, TToolRequirement> : DbContext
     where TUnitState : UnitStateBase
     where TProductType : ProductTypeBase
     where TProductUnit : ProductUnitBase<TProductType>
     where TRouteOperation : RouteOperationBase<TProductType>
     where TUnitOperation : UnitOperationBase<TProductType, TProductUnit, TRouteOperation>
-    where TOperationResult : OperationResultBase<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation>
+    where TOperationResult :
+    OperationResultBase<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation>
+    where TToolType : ToolTypeBase
+    where TToolRequirement : ToolRequirementBase
+    where TTool : ToolBase<TToolType>
+    where TToolClaim : ToolClaimBase<TToolType, TTool>
 {
     public DbSet<TUnitState> States { get; set; } = null!;
     public DbSet<TProductType> Types { get; set; } = null!;
@@ -29,26 +39,24 @@ public class MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation,
     public DbSet<StateRoute<TProductType, TUnitState, TRouteOperation>> StatesToRoutes { get; set; } = null!;
 
     public DbSet<Namespace> Namespaces { get; set; } = null!;
-    public DbSet<ToolType> ToolTypes { get; set; } = null!;
-    public DbSet<Tool> Tools { get; set; } = null!;
-    public DbSet<ToolRequirement> ToolRequirements { get; set; } = null!;
-    public DbSet<ToolClaim> ToolClaims { get; set; } = null!;
-    
+    public DbSet<TToolType> ToolTypes { get; set; } = null!;
+    public DbSet<TTool> Tools { get; set; } = null!;
+    public DbSet<TToolRequirement> ToolRequirements { get; set; } = null!;
+    public DbSet<TToolClaim> ToolClaims { get; set; } = null!;
+
     public DbSet<MaterialRequirement> MaterialRequirements { get; set; } = null!;
     public DbSet<MaterialClaim> MaterialClaims { get; set; } = null!;
 
     public MesContext(DbContextOptions options) : base(options)
     {
-        
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<StateRoute<TProductType, TUnitState, TRouteOperation>>()
             .HasOne(i => i.RouteOp);
-        
+
         modelBuilder.Entity<StateRoute<TProductType, TUnitState, TRouteOperation>>()
             .HasOne(i => i.State);
-        
     }
 }

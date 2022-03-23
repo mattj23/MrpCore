@@ -2,7 +2,7 @@
 
 namespace MrpCore.Models;
 
-public class ToolRequirement
+public class ToolRequirementBase
 {
     [Key]
     public int Id { get; set; }

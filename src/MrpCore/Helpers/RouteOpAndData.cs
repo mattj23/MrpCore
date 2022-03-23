@@ -2,12 +2,13 @@
 
 namespace MrpCore.Helpers;
 
-public class RouteOpAndData<TProductType, TUnitState, TRouteOperation>
+public class RouteOpAndData<TProductType, TUnitState, TRouteOperation, TToolRequirement>
     where TUnitState : UnitStateBase
     where TProductType : ProductTypeBase
     where TRouteOperation : RouteOperationBase<TProductType>
+    where TToolRequirement : ToolRequirementBase
 {
-    public RouteOpAndData(TRouteOperation operation, StateRelations<TUnitState> states, ToolRequirement[] toolRequirements, MaterialRequirement[] materialRequirements)
+    public RouteOpAndData(TRouteOperation operation, StateRelations<TUnitState> states, TToolRequirement[] toolRequirements, MaterialRequirement[] materialRequirements)
     {
         Op = operation;
         States = states;
@@ -18,7 +19,7 @@ public class RouteOpAndData<TProductType, TUnitState, TRouteOperation>
     public TRouteOperation Op { get; }
     public StateRelations<TUnitState> States { get; }
     
-    public ToolRequirement[] ToolRequirements { get; }
+    public TToolRequirement[] ToolRequirements { get; }
     
     public MaterialRequirement[] MaterialRequirements { get; }
 }

@@ -4,58 +4,80 @@ using MrpCore.Models;
 
 namespace MrpCore.Services;
 
-public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult> 
+public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult,
+    TToolType, TTool, TToolClaim, TToolRequirement>
     where TUnitState : UnitStateBase
     where TProductType : ProductTypeBase
     where TProductUnit : ProductUnitBase<TProductType>
     where TRouteOperation : RouteOperationBase<TProductType>
     where TUnitOperation : UnitOperationBase<TProductType, TProductUnit, TRouteOperation>, new()
-    where TOperationResult : OperationResultBase<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation>, new()
+    where TOperationResult :
+    OperationResultBase<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation>, new()
+    where TToolType : ToolTypeBase
+    where TToolRequirement : ToolRequirementBase
+    where TTool : ToolBase<TToolType>
+    where TToolClaim : ToolClaimBase<TToolType, TTool>, new()
 {
     private readonly MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation,
-        TOperationResult> _db;
+        TOperationResult, TToolType, TTool, TToolClaim, TToolRequirement> _db;
 
     private readonly IMesUpdater _updater;
-    
+
     protected MesManager(
-        MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult> db, IMesUpdater updater)
+        MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation,
+            TOperationResult, TToolType, TTool, TToolClaim, TToolRequirement> db, IMesUpdater updater)
     {
         _db = db;
         _updater = updater;
         RouteManager =
             new MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation,
-                TOperationResult>(_db, _updater);
-        
+                TOperationResult,
+                TToolType, TTool, TToolClaim, TToolRequirement>(_db, _updater);
+
         UnitManager =
             new MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation,
-                TOperationResult>(_db, RouteManager, _updater);
+                TOperationResult, TToolType, TTool, TToolClaim, TToolRequirement>(_db, RouteManager, _updater);
 
         ToolManager =
             new MesToolingManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation,
-                TOperationResult>(_db, _updater);
+                TOperationResult,
+                TToolType, TTool, TToolClaim, TToolRequirement>(_db, _updater);
     }
 
-    public virtual MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult>
+    public virtual MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation,
+            TOperationResult,
+            TToolType, TTool, TToolClaim, TToolRequirement>
         RouteManager { get; }
-    
-    public virtual MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult>
+
+    public virtual MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation,
+            TOperationResult, TToolType, TTool, TToolClaim, TToolRequirement>
         UnitManager { get; }
-    
-    public virtual MesToolingManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation, TOperationResult>
+
+    public virtual MesToolingManager<TProductType, TUnitState, TProductUnit, TRouteOperation, TUnitOperation,
+            TOperationResult,
+            TToolType, TTool, TToolClaim, TToolRequirement>
         ToolManager { get; }
 
-    public IQueryable<Namespace> Namespaces => _db.Namespaces; 
+    public IQueryable<Namespace> Namespaces => _db.Namespaces;
     public IQueryable<TProductType> ProductTypes => _db.Types;
-    public ValueTask<TProductType?> ProductTypeById(int id) => _db.Types.FindAsync(id);
+
+    public ValueTask<TProductType?> ProductTypeById(int id)
+    {
+        return _db.Types.FindAsync(id);
+    }
+
     public IQueryable<TUnitState> UnitStates => _db.States;
 
-    public ValueTask<TUnitState?> UnitStateById(int stateId) => _db.States.FindAsync(stateId);
+    public ValueTask<TUnitState?> UnitStateById(int stateId)
+    {
+        return _db.States.FindAsync(stateId);
+    }
 
     public async Task UpdateProductType(int productTypeId, Action<TProductType> modify)
     {
         var target = await _db.Types.FindAsync(productTypeId);
         if (target is null) throw new KeyNotFoundException();
-        
+
         modify.Invoke(target);
         await _db.SaveChangesAsync();
     }
@@ -68,14 +90,12 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
         var locked = await StateHasBeenReferenced(stateId);
         var blocks = target.BlocksCompletion;
         var terminates = target.TerminatesRoute;
-        
+
         modifyAction.Invoke(target);
 
         if (locked && (blocks != target.BlocksCompletion || terminates != target.TerminatesRoute))
-        {
             throw new InvalidOperationException(
                 "This state has been referenced, its functional parameters cannot be changed.");
-        }
 
         await _db.SaveChangesAsync();
     }
@@ -92,12 +112,12 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
         _db.States.Remove(target);
         await _db.SaveChangesAsync();
     }
-    
+
     public Task<bool> StateHasBeenReferenced(int stateId)
     {
         return _db.StatesToRoutes.AsNoTracking().AnyAsync(j => j.UnitStateId == stateId);
     }
-    
+
     public Task<Namespace?> GetNamespaceByKey(string key)
     {
         return _db.Namespaces.FirstOrDefaultAsync(n => n.Key == key);
@@ -114,13 +134,13 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
                await _db.States.AsNoTracking().AnyAsync(s => s.NamespaceId == namespaceId) ||
                await _db.Types.AsNoTracking().AnyAsync(t => t.NamespaceId == namespaceId);
     }
-    
+
     public async Task CreateNamespace(Namespace item)
     {
         await _db.Namespaces.AddAsync(item);
         await _db.SaveChangesAsync();
     }
-    
+
     public virtual async Task<int> CreateProductType(TProductType newItem)
     {
         await _db.Types.AddAsync(newItem);
@@ -137,21 +157,20 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
         return newItem.Id;
     }
 
-    public async Task<NamespaceData<TUnitState, TProductType>> GetNamespaceData(int? namespaceId)
+    public async Task<NamespaceData<TUnitState, TProductType, TToolType>> GetNamespaceData(int? namespaceId)
     {
         var productTypes = await _db.Types.AsNoTracking()
             .Where(p => p.NamespaceId == null || p.NamespaceId == namespaceId)
             .ToArrayAsync();
-        
+
         var states = await _db.States.AsNoTracking()
             .Where(p => p.NamespaceId == null || p.NamespaceId == namespaceId)
             .ToArrayAsync();
-        
+
         var toolTypes = await _db.ToolTypes.AsNoTracking()
             .Where(p => p.NamespaceId == null || p.NamespaceId == namespaceId)
             .ToArrayAsync();
 
-        return new NamespaceData<TUnitState, TProductType>(productTypes, states, toolTypes);
+        return new NamespaceData<TUnitState, TProductType, TToolType>(productTypes, states, toolTypes);
     }
-
 }
