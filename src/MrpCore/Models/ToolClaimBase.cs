@@ -16,9 +16,20 @@ public class ToolClaimBase<TToolType, TTool>
     [ForeignKey(nameof(ToolId))]
     public TTool? Tool { get; set; }
     
+    /// <summary>
+    /// Gets or sets the ID of the operation result which created this claim
+    /// </summary>
     public int ResultId { get; set; }
     
     public int CapacityTaken { get; set; }
     
+    /// <summary>
+    /// Gets or sets the ID of the operation result which released this claim, if one exists
+    /// </summary>
+    public int? ReleaseId { get; set; }
+    
+    /// <summary>
+    /// Gets or sets a flag which indicates if this claim has been released
+    /// </summary>
     public bool Released { get; set; }
 }

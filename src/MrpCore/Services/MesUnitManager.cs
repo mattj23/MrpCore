@@ -204,7 +204,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         if (terminated)
         {
             var unitRoute = await GetUnitRoute(unitId);
-            await ReleaseAllToolClaims(unitRoute.Results.Select(r => r.Id).ToHashSet());
+            await ReleaseAllToolClaims(unitRoute.Results.Select(r => r.Id).ToHashSet(), result.Id);
             await SetArchiveState(unitId, true, true);
         }
 
@@ -246,7 +246,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
 
         // Release any tools
         var resultIds = unitRoute.Results.Select(r => r.Id).ToHashSet();
-        await ReleaseTools(routeOpId, resultIds);
+        await ReleaseTools(routeOpId, result.Id, resultIds);
 
         // Exit if the operation passed
         if (result.Pass)
@@ -271,7 +271,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
             if (terminated)
             {
                 unitRoute = await GetUnitRoute(unitId);
-                await ReleaseAllToolClaims(unitRoute.Results.Select(r => r.Id).ToHashSet());
+                await ReleaseAllToolClaims(unitRoute.Results.Select(r => r.Id).ToHashSet(), result.Id);
             }
 
             Updater.UpdateResult(true, result.Id);
@@ -346,19 +346,29 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         return new OperationResultData<TToolType, TTool, TToolClaim>(toolClaims, materialClaims);
     }
 
-    private async Task ReleaseAllToolClaims(HashSet<int> unitOpResultIds)
+    private async Task ReleaseAllToolClaims(HashSet<int> unitOpResultIds, int? resultId = null)
     {
         var openClaims = await _db.ToolClaims
             .Where(c => !c.Released && unitOpResultIds.Contains(c.ResultId))
             .Include(c => c.Tool)
             .ToArrayAsync();
 
-        foreach (var claim in openClaims) claim.Released = true;
+        foreach (var claim in openClaims)
+        {
+            claim.Released = true;
+            claim.ReleaseId = resultId;
+        }
 
         await _db.SaveChangesAsync();
     }
 
-    private async Task ReleaseTools(int routeOperationId, HashSet<int> unitOpResultIds)
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="routeOperationId"></param>
+    /// <param name="resultId">The id of this result operation</param>
+    /// <param name="unitOpResultIds">A hashset of previous result operation IDs which may have made tool claims</param>
+    private async Task ReleaseTools(int routeOperationId, int resultId, HashSet<int> unitOpResultIds)
     {
         // Are there any releasing tool requirements?
         var releases = await _db.ToolRequirements.AsNoTracking()
@@ -384,6 +394,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
             // TODO: should the release be the oldest? or the most recent? For now it's just the first
             var target = await _db.ToolClaims.FindAsync(matching.First().Id);
             target!.Released = true;
+            target!.ReleaseId = resultId;
         }
 
         await _db.SaveChangesAsync();
