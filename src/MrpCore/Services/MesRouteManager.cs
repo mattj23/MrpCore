@@ -67,7 +67,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     /// <param name="toolRequirements"></param>
     /// <param name="materialRequirements"></param>
     /// <returns>The integer ID of the new added operation</returns>
-    public async Task<int> AddOp(TRouteOperation operation, StateRelations<TUnitState> states, 
+    public virtual async Task<int> AddOp(TRouteOperation operation, StateRelations<TUnitState> states, 
         ToolRequirement[] toolRequirements, MaterialRequirement[] materialRequirements)
     {
         operation.Id = 0;
@@ -101,7 +101,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     /// <returns></returns>
     /// <exception cref="KeyNotFoundException"></exception>
     /// <exception cref="InvalidOperationException"></exception>
-    public async Task<int> AddCorrectiveOp(TRouteOperation operation, int parentId, StateRelations<TUnitState> states,
+    public virtual async Task<int> AddCorrectiveOp(TRouteOperation operation, int parentId, StateRelations<TUnitState> states,
         ToolRequirement[] toolRequirements, MaterialRequirement[] materialRequirements)
     {
         // Check for a valid parent

@@ -121,7 +121,7 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
         await _db.SaveChangesAsync();
     }
     
-    public async Task<int> CreateProductType(TProductType newItem)
+    public virtual async Task<int> CreateProductType(TProductType newItem)
     {
         await _db.Types.AddAsync(newItem);
         await _db.SaveChangesAsync();
@@ -129,7 +129,7 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
         return newItem.Id;
     }
 
-    public async Task<int> CreateUnitState(TUnitState newItem)
+    public virtual async Task<int> CreateUnitState(TUnitState newItem)
     {
         await _db.States.AddAsync(newItem);
         await _db.SaveChangesAsync();
