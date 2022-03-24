@@ -52,7 +52,7 @@ public class MesToolingManager<TProductType, TUnitState, TProductUnit, TRouteOpe
     {
         await _db.ToolTypes.AddAsync(newType);
         await _db.SaveChangesAsync();
-        _updater.UpdateToolType(ChangeType.Created, newType.Id);
+        _updater.UpdateToolType(ChangeType.Created, newType.Id, newType.NamespaceId);
         return newType.Id;
     }
 
@@ -63,7 +63,7 @@ public class MesToolingManager<TProductType, TUnitState, TProductUnit, TRouteOpe
 
         modifyAction.Invoke(target);
         await _db.SaveChangesAsync();
-        _updater.UpdateToolType(ChangeType.Updated, typeId);
+        _updater.UpdateToolType(ChangeType.Updated, typeId, target.NamespaceId);
     }
 
     public virtual async Task DeleteType(int typeId)
@@ -77,7 +77,7 @@ public class MesToolingManager<TProductType, TUnitState, TProductUnit, TRouteOpe
 
         _db.ToolTypes.Remove(target);
         await _db.SaveChangesAsync();
-        _updater.UpdateToolType(ChangeType.Deleted, typeId);
+        _updater.UpdateToolType(ChangeType.Deleted, typeId, target.NamespaceId);
     }
 
     public virtual Task<TTool[]> GetTools(int? namespaceId)

@@ -153,7 +153,7 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
     {
         await _db.States.AddAsync(newItem);
         await _db.SaveChangesAsync();
-        _updater.UpdateStates(ChangeType.Created, newItem.Id);
+        _updater.UpdateStates(ChangeType.Created, newItem.Id, newItem.NamespaceId);
         return newItem.Id;
     }
 

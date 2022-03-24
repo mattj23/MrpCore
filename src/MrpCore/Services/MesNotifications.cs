@@ -13,24 +13,24 @@ public enum ChangeType
 
 public record RouteUpdate(ChangeType Type, int ProductTypeId);
 
-public record UnitStateUpdate(ChangeType Type, int UnitStateId);
+public record UnitStateUpdate(ChangeType Type, int UnitStateId, int? NamespaceId);
 
 public record UnitUpdate(ChangeType Type, int UnitId);
 
 public record ResultUpdate(bool Pass, int ResultId);
 
-public record ToolTypeUpdate(ChangeType Type, int ToolTypeId);
+public record ToolTypeUpdate(ChangeType Type, int ToolTypeId, int? NamespaceId);
 public record ToolUpdate(ChangeType Type, int ToolId);
 public record ToolClaimUpdate(bool Released, int ToolId);
 
 public interface IMesUpdater
 {
     void UpdateRoute(ChangeType type, int productTypeId);
-    void UpdateStates(ChangeType type, int unitStateId);
+    void UpdateStates(ChangeType type, int unitStateId, int? namespaceId);
     void UpdateUnit(ChangeType type, int unitId);
     void UpdateResult(bool pass, int resultId);
     
-    void UpdateToolType(ChangeType type, int toolTypeId);
+    void UpdateToolType(ChangeType type, int toolTypeId, int? namespaceId);
     void UpdateTool(ChangeType type, int toolId);
     void UpdateToolClaim(bool released, int toolId);
 }
@@ -83,9 +83,9 @@ public class MesNotifications : IMesUpdater, IMesUpdates
         _routeUpdates.OnNext(new RouteUpdate(type, productTypeId));
     }
     
-    public void UpdateStates(ChangeType type, int unitStateId)
+    public void UpdateStates(ChangeType type, int unitStateId, int? namespaceId)
     {
-        _unitStateUpdates.OnNext(new UnitStateUpdate(type, unitStateId));
+        _unitStateUpdates.OnNext(new UnitStateUpdate(type, unitStateId, namespaceId));
     }
     
     public void UpdateUnit(ChangeType type, int unitId)
@@ -98,9 +98,9 @@ public class MesNotifications : IMesUpdater, IMesUpdates
         _resultUpdates.OnNext(new ResultUpdate(pass, resultId));
     }
 
-    public void UpdateToolType(ChangeType type, int toolTypeId)
+    public void UpdateToolType(ChangeType type, int toolTypeId, int? namespaceId)
     {
-        _toolTypeUpdates.OnNext(new ToolTypeUpdate(type, toolTypeId));
+        _toolTypeUpdates.OnNext(new ToolTypeUpdate(type, toolTypeId, namespaceId));
     }
 
     public void UpdateTool(ChangeType type, int toolId)
@@ -120,7 +120,7 @@ public class EmptyMesUpdater : IMesUpdater
     {
     }
 
-    public void UpdateStates(ChangeType type, int unitStateId)
+    public void UpdateStates(ChangeType type, int unitStateId, int? namespaceId)
     {
     }
 
@@ -132,7 +132,7 @@ public class EmptyMesUpdater : IMesUpdater
     {
     }
 
-    public void UpdateToolType(ChangeType type, int toolTypeId)
+    public void UpdateToolType(ChangeType type, int toolTypeId, int? namespaceId)
     {
     }
 
