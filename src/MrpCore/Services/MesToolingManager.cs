@@ -88,6 +88,13 @@ public class MesToolingManager<TProductType, TUnitState, TProductUnit, TRouteOpe
             .ToArrayAsync();
     }
 
+    public virtual Task<TTool?> GetTool(int toolId)
+    {
+        return _db.Tools.AsNoTracking()
+            .Include(t => t.Type)
+            .FirstOrDefaultAsync(t => t.Id == toolId);
+    }
+
     public virtual Task<bool> ToolHasBeenReferenced(int toolId)
     {
         return _db.ToolClaims.AsNoTracking().AnyAsync(t => t.ToolId == toolId);
