@@ -80,7 +80,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     public virtual async Task<int> AddOp(TRouteOperation operation, StateRelations<TUnitState> states,
         TToolRequirement[] toolRequirements, MaterialRequirement[] materialRequirements)
     {
-        operation.Id = 0;
+        if (operation.Id <= 0) operation.Id = 0;
         operation.ThrowIfInvalid();
 
         await _db.RouteOperations.AddAsync(operation);
@@ -358,8 +358,8 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         return results;
     }
 
-    protected virtual async Task<RouteOpAndData<TProductType, TUnitState, TRouteOperation, TToolRequirement>> GetOpAndData(
-        int routeOpId)
+    public virtual async Task<RouteOpAndData<TProductType, TUnitState, TRouteOperation, TToolRequirement>> 
+        GetOpAndData(int routeOpId)
     {
         var op = await _db.RouteOperations.FindAsync(routeOpId);
         if (op is null) throw new KeyNotFoundException();
