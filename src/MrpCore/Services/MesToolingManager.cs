@@ -48,12 +48,14 @@ public class MesToolingManager<TProductType, TUnitState, TProductUnit, TRouteOpe
                await _db.Tools.AsNoTracking().AnyAsync(t => t.TypeId == toolTypeId);
     }
 
-    public virtual async Task<int> CreateType(TToolType newType)
+    public virtual async Task<TToolType> CreateType(TToolType newType)
     {
+        if (newType.Id <= 0) newType.Id = 0;
+        
         await _db.ToolTypes.AddAsync(newType);
         await _db.SaveChangesAsync();
         _updater.UpdateToolType(ChangeType.Created, newType.Id, newType.NamespaceId);
-        return newType.Id;
+        return newType;
     }
 
     public virtual async Task UpdateType(int typeId, Action<TToolType> modifyAction)
@@ -100,12 +102,14 @@ public class MesToolingManager<TProductType, TUnitState, TProductUnit, TRouteOpe
         return _db.ToolClaims.AsNoTracking().AnyAsync(t => t.ToolId == toolId);
     }
 
-    public virtual async Task<int> CreateTool(TTool tool)
+    public virtual async Task<TTool> CreateTool(TTool tool)
     {
+        if (tool.Id <= 0) tool.Id = 0;
+        
         await _db.Tools.AddAsync(tool);
         await _db.SaveChangesAsync();
         _updater.UpdateTool(ChangeType.Created, tool.Id);
-        return tool.Id;
+        return tool;
     }
 
     public virtual async Task UpdateTool(int toolId, Action<TTool> modifyAction)

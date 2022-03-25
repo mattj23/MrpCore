@@ -141,12 +141,14 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
         await _db.SaveChangesAsync();
     }
 
-    public virtual async Task<int> CreateProductType(TProductType newItem)
+    public virtual async Task<TProductType> CreateProductType(TProductType newItem)
     {
+        if (newItem.Id <= 0) newItem.Id = 0;
+        
         await _db.Types.AddAsync(newItem);
         await _db.SaveChangesAsync();
         _updater.UpdateRoute(ChangeType.Created, newItem.Id);
-        return newItem.Id;
+        return newItem;
     }
 
     public virtual async Task<int> CreateUnitState(TUnitState newItem)

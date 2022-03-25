@@ -8,7 +8,7 @@ public class ToolBase<TToolType> where TToolType : ToolTypeBase
     [Key]
     public int Id { get; set; }
 
-    [MaxLength(32)] public string Name { get; set; } = null!;
+    [MaxLength(64)] public string Name { get; set; } = null!;
     
     [MaxLength(128)] public string? Description { get; set; }
     
