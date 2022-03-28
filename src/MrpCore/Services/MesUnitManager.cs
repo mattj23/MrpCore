@@ -58,7 +58,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
     /// <param name="newUnit"></param>
     /// <param name="modifyOperations"></param>
     /// <param name="modifyUnit"></param>
-    public async Task AddUnit(TProductUnit newUnit, Action<TUnitOperation[]>? modifyOperations = null,
+    public async Task<TProductUnit> AddUnit(TProductUnit newUnit, Action<TUnitOperation[]>? modifyOperations = null,
         Action<TProductUnit>? modifyUnit = null)
     {
         // Verify that the route has at least one default step before allowing the unit to be added
@@ -89,6 +89,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         await _db.UnitOperations.AddRangeAsync(operations);
         await _db.SaveChangesAsync();
         Updater.UpdateUnit(ChangeType.Created, newUnit.Id);
+        return newUnit;
     }
 
     public async

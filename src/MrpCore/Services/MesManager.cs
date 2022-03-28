@@ -151,12 +151,12 @@ public class MesManager<TProductType, TUnitState, TProductUnit, TRouteOperation,
         return newItem;
     }
 
-    public virtual async Task<int> CreateUnitState(TUnitState newItem)
+    public virtual async Task<TUnitState> CreateUnitState(TUnitState newItem)
     {
         await _db.States.AddAsync(newItem);
         await _db.SaveChangesAsync();
         _updater.UpdateStates(ChangeType.Created, newItem.Id, newItem.NamespaceId);
-        return newItem.Id;
+        return newItem;
     }
 
     public async Task<NamespaceData<TUnitState, TProductType, TToolType>> GetNamespaceData(int? namespaceId)
