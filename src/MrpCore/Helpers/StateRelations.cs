@@ -28,4 +28,13 @@ public class StateRelations<TUnitState> where TUnitState : UnitStateBase
             Enumerable.Empty<TUnitState>(),
             Enumerable.Empty<TUnitState>());
     }
+    
+    public static StateRelations<TUnitState> FromAdds(IEnumerable<TUnitState> adds)
+    {
+        return new StateRelations<TUnitState>(
+            adds,
+            Enumerable.Empty<TUnitState>(),
+            Enumerable.Empty<TUnitState>(),
+            Enumerable.Empty<TUnitState>());
+    }
 }
