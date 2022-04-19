@@ -154,11 +154,6 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         modifyAction.Invoke(item);
         item.ThrowIfInvalid();
 
-        var existingToolReqs = await _db.ToolRequirements.Where(r => r.RouteOperationId == id).ToArrayAsync();
-        var existingMaterialReqs = await _db.MaterialRequirements.Where(r => r.RouteOperationId == id).ToArrayAsync();
-        _db.ToolRequirements.RemoveRange(existingToolReqs);
-        _db.MaterialRequirements.RemoveRange(existingMaterialReqs);
-
         var existingJoins = _db.StatesToRoutes.Where(j => j.RouteOperationId == id).ToArray();
         _db.StatesToRoutes.RemoveRange(existingJoins);
 
@@ -321,21 +316,51 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         );
     }
 
-    public virtual async Task<IReadOnlyCollection<RequirementData>> GetRequirementsFor(int routeOpId, bool pass,
-        Func<HashSet<int>, Dictionary<int, double>>? additionalMaterialConsumption = null)
+    /// <summary>
+    /// Get the unified RequirementData objects used to communicate operation requirements.
+    ///
+    /// This will fetch the tool and material requirements for a specific route operation, then figure out what the
+    /// plausible options for satisfying them are, and return them in a form which a client can use to produce
+    /// selections.
+    /// </summary>
+    /// <param name="routeOpId"></param>
+    /// <param name="pass"></param>
+    /// <param name="additionalMaterialConsumption"></param>
+    /// <returns></returns>
+    public virtual async Task<IReadOnlyCollection<RequirementData>> GetRequirementsFor(int routeOpId, bool pass)
     {
         var data = await GetOpAndData(routeOpId);
         var results = new List<RequirementData>();
 
+        // The material requirements 
         foreach (var mat in data.MaterialRequirements)
         {
+            // No need to sort out the requirements if this is not a passed operation and the requirement is not 
+            // consumed on failure
             if (!pass && !mat.ConsumedOnFailure) continue;
-            var reqType = await _db.Types.AsNoTracking().FirstOrDefaultAsync(x => x.Id == mat.ProductTypeId);
 
-            var title = $"Material Requirement: {reqType?.Name}, quantity {mat.Quantity ?? 0}";
-            var options = (await GetMaterialOptions(mat.ProductTypeId, mat.Quantity))
-                .Select(s => new RequirementData.Option(s.Id, s.ToString(), s))
-                .ToArray();
+            var options = new List<RequirementOption>();
+            
+            foreach (var reqOption in mat.Options)
+            {
+                if (reqOption.IsStockItem)
+                {
+                    var stockItem = await _db.StockItems.AsNoTracking()
+                        .FirstAsync(x => x.Id == reqOption.TypeId);
+                    options.Add(new(RequirementData.ReqType.MaterialStockItem, stockItem.Id, stockItem.Name,
+                        stockItem.Description ?? string.Empty, stockItem));
+                }
+                else
+                {
+                    var productOptions = (await GetMaterialOptions(reqOption.TypeId, mat.Quantity))
+                        .Select(s => new RequirementOption(RequirementData.ReqType.Material, s.Id,
+                            s.ToString(), s.Type!.Name, s))
+                        .ToArray();
+                    options.AddRange(productOptions);
+                }
+            }
+
+            var title = $"{mat.Description}, quantity {mat.Quantity}";
             results.Add(new RequirementData(mat.Id, title, RequirementData.ReqType.Material, options));
         }
 
@@ -350,7 +375,8 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
             if (capacity > 0) title += $", {capacity} capacity";
 
             var options = (await GetToolOptions(toolReq.ToolTypeId, capacity))
-                .Select(s => new RequirementData.Option(s.Id, s.ToString(), s))
+                .Select(s => new RequirementOption(RequirementData.ReqType.Tool, s.Id, s.ToString(),
+                    s.Description ?? string.Empty, s))
                 .ToArray();
             results.Add(new RequirementData(toolReq.Id, title, RequirementData.ReqType.Tool, options));
         }
@@ -365,8 +391,11 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         if (op is null) throw new KeyNotFoundException();
 
         var states = await GetStates(routeOpId);
-        var toolReqs = await _db.ToolRequirements.Where(r => r.RouteOperationId == routeOpId).ToArrayAsync();
-        var materialReqs = await _db.MaterialRequirements.Where(r => r.RouteOperationId == routeOpId).ToArrayAsync();
+        var toolReqs = await _db.ToolRequirements.Where(r => r.RouteOpRootId == op.RootId).ToArrayAsync();
+        var materialReqs = await _db.MaterialRequirements
+            .Include(r => r.Options)
+            .Where(r => r.RouteOpRootId == op.RootId && !r.Archived)
+            .ToArrayAsync();
 
         return new RouteOpAndData<TProductType, TUnitState, TRouteOperation, TToolRequirement>(op, states, toolReqs,
             materialReqs);
@@ -402,10 +431,11 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
     protected virtual async Task AddRequirements(int routeOpId, TToolRequirement[] toolRequirements,
         MaterialRequirement[] materialRequirements)
     {
+        var op = await _db.RouteOperations.AsNoTracking().FirstAsync(x => x.Id == routeOpId);
         foreach (var req in toolRequirements)
         {
             req.Id = 0;
-            req.RouteOperationId = routeOpId;
+            req.RouteOpRootId = op.RootId;
         }
 
         await _db.ToolRequirements.AddRangeAsync(toolRequirements);
@@ -413,7 +443,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         foreach (var req in materialRequirements)
         {
             req.Id = 0;
-            req.RouteOperationId = routeOpId;
+            req.RouteOpRootId = op.RootId;
         }
 
         await _db.MaterialRequirements.AddRangeAsync(materialRequirements);
@@ -426,6 +456,7 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
 
         // Find all non-archived units of the given type who had an actual quantity assigned
         var candidates = await _db.Units.AsNoTracking()
+            .Include(u => u.Type)
             .Where(u => u.ProductTypeId == typeId && !u.Archived && u.Quantity != null)
             .ToArrayAsync();
 

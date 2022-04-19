@@ -4,27 +4,36 @@ namespace MrpCore.Models;
 
 public class MaterialRequirement
 {
+    public MaterialRequirement()
+    {
+        Options = new List<MaterialRequirementOption>();
+    }
+    
     [Key]
     public int Id { get; set; }
     
     /// <summary>
-    /// Gets or sets the id of the route operation which has this requirement
+    /// Gets or sets a description explaining what this material requirement is for
     /// </summary>
-    public int RouteOperationId { get; set; }
+    public string? Description { get; set; }
     
     /// <summary>
-    /// Gets or sets the ID of the product type which is consumed by this operation
+    /// Gets or sets the id of the route operation which has this requirement
     /// </summary>
-    public int ProductTypeId { get; set; }
+    public int RouteOpRootId { get; set; }
     
     /// <summary>
     /// Gets or sets an optional quantity which specifies how many units of the product type ID will be
-    /// consumed by this operation. If the quantity is null it is the same as 0 quantity consumed.
+    /// consumed by this operation. 
     /// </summary>
-    public double? Quantity { get; set; }
+    public double Quantity { get; set; }
     
     /// <summary>
     /// Gets or sets a flag which determines if the material is consumed even if the operation is not successful
     /// </summary>
     public bool ConsumedOnFailure { get; set; }
+    
+    public ICollection<MaterialRequirementOption> Options { get; set; }
+    
+    public bool Archived { get; set; }
 }

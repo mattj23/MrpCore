@@ -371,9 +371,12 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
     /// <param name="unitOpResultIds">A hashset of previous result operation IDs which may have made tool claims</param>
     private async Task ReleaseTools(int routeOperationId, int resultId, HashSet<int> unitOpResultIds)
     {
+        var op = await _db.RouteOperations.FindAsync(routeOperationId);
+        if (op is null) throw new KeyNotFoundException();
+        
         // Are there any releasing tool requirements?
         var releases = await _db.ToolRequirements.AsNoTracking()
-            .Where(r => r.RouteOperationId == routeOperationId && r.Type == ToolRequirementType.Released)
+            .Where(r => r.RouteOpRootId == op.RootId && r.Type == ToolRequirementType.Released)
             .ToArrayAsync();
 
         if (!releases.Any()) return;
@@ -426,7 +429,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         foreach (var req in requirements)
         {
             // Find the matching select
-            var match = selects.FirstOrDefault(s => s.ReqId == req.ReferenceId && s.Type == req.Type);
+            var match = selects.FirstOrDefault(s => s.ReqId == req.ReferenceId && s.Type.Matches(req.Type));
             if (match is null)
                 throw new InvalidOperationException("Cannot construct claim, requirement missing");
 
@@ -441,12 +444,27 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
                         .FirstAsync(r => r.Id == req.ReferenceId);
                     await _db.MaterialClaims.AddAsync(new MaterialClaim
                     {
+                        MaterialRequirementId = req.ReferenceId,
                         ProductUnitId = match.SelectedId,
-                        Quantity = originalMatReq.Quantity ?? 0.0,
+                        Quantity = originalMatReq.Quantity,
                         ResultId = resultId
                     });
                     updated = true;
                     break;
+                
+                case RequirementData.ReqType.MaterialStockItem:
+                    var matReq = await _db.MaterialRequirements.AsNoTracking()
+                        .FirstAsync(r => r.Id == req.ReferenceId);
+                    await _db.MaterialClaims.AddAsync(new MaterialClaim
+                    {
+                        MaterialRequirementId = req.ReferenceId,
+                        StockUnitId = match.SelectedId,
+                        Quantity = matReq.Quantity,
+                        ResultId = resultId
+                    });
+                    updated = true;
+                    break;
+                
                 case RequirementData.ReqType.Tool:
                     var originalToolReq = await _db.ToolRequirements.AsNoTracking()
                         .FirstAsync(r => r.Id == req.ReferenceId);
@@ -459,6 +477,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
                     });
                     updated = true;
                     break;
+                
                 default:
                     throw new ArgumentOutOfRangeException();
             }

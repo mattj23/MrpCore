@@ -45,7 +45,10 @@ public class MesContext<TProductType, TUnitState, TProductUnit, TRouteOperation,
     public DbSet<TToolClaim> ToolClaims { get; set; } = null!;
 
     public DbSet<MaterialRequirement> MaterialRequirements { get; set; } = null!;
+    public DbSet<MaterialRequirementOption> MaterialRequirementOptions { get; set; } = null!;
     public DbSet<MaterialClaim> MaterialClaims { get; set; } = null!;
+
+    public DbSet<StockItem> StockItems { get; set; } = null!;
 
     public MesContext(DbContextOptions options) : base(options)
     {
