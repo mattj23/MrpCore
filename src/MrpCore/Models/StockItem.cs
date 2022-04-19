@@ -2,6 +2,11 @@
 
 namespace MrpCore.Models;
 
+/// <summary>
+/// A StockItem is a placeholder for common parts used in material requirements which aren't tracked in inventory but
+/// rather just assumed to be adequately stocked. They exist both for BOM generation and to serve as a mechanism for
+/// product variation.
+/// </summary>
 public class StockItem
 {
     [Key]

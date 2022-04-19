@@ -15,6 +15,8 @@ public class StateRelations<TUnitState> where TUnitState : UnitStateBase
         BlockedBy = blockedBy.ToArray();
     }
 
+    public bool Any() => Adds.Any() || Removes.Any() || Needs.Any() || BlockedBy.Any();
+
     public IReadOnlyCollection<TUnitState> Adds { get; }
     public IReadOnlyCollection<TUnitState> Removes { get; }
     public IReadOnlyCollection<TUnitState> Needs { get; }

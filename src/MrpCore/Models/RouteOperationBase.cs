@@ -46,6 +46,9 @@ public class RouteOperationBase<TProductType>
     /// overall sequence in which the operations must be performed. If this operation is part of a corrective chain,
     /// the op number determines the sequence in which the corrective operations must be performed. For special
     /// operations this number is ignored.
+    ///
+    /// Two or more operations with the same op number become a split path. Only one of these operations needs to
+    /// have a result in order for the route to progress.
     /// </summary>
     [Required] public int OpNumber { get; set; }
     
