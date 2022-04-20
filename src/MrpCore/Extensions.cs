@@ -25,6 +25,17 @@ public static class Extensions
             _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)};
     }
 
+    public static string Description(this ToolRequirementType value)
+    {
+        return value switch
+        {
+            ToolRequirementType.Occupied => "Tool is Occupied",
+            ToolRequirementType.UsedOnly => "Tool is Used",
+            ToolRequirementType.Released => "Occupied Tool is Released",
+            _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
+        };
+    }
+
     public static bool IsStandard(this RouteOpAdd value) => value is RouteOpAdd.Default or RouteOpAdd.NotDefault;
     public static bool NotSpecial(this RouteOpAdd value) => value is not RouteOpAdd.Special;
 

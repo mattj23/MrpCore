@@ -159,9 +159,6 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
 
         var newJoins = GetJoins(id, states);
         await _db.StatesToRoutes.AddRangeAsync(newJoins);
-
-        // Synchronize tool and material requirements
-        throw new NotImplementedException();
         
         await _db.SaveChangesAsync();
         _updater.UpdateRoute(ChangeType.Updated, item.ProductTypeId);
@@ -216,14 +213,13 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         StateRelations<TUnitState> states, TToolRequirement[] toolRequirements,
         MaterialRequirement[] materialRequirements)
     {
+        // If the operation is locked, we increment it
         if (await IsOpLocked(id))
         {
-            // TODO: Synchronize material and tool requirements
-            throw new NotImplementedException();
-            
             return await IncrementOpVersion(id, modifyAction, states);
         }
 
+        // Otherwise we can actually perform an update in which we modify the existing op
         await UpdateOp(id, modifyAction, states, toolRequirements, materialRequirements);
         return id;
     }
@@ -508,4 +504,5 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
 
         return candidates.Where(c => c.Capacity - consumed[c.Id] >= (capacity ?? 0)).ToArray();
     }
+
 }
