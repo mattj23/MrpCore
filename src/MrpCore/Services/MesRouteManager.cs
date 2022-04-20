@@ -435,12 +435,59 @@ public class MesRouteManager<TProductType, TUnitState, TProductUnit, TRouteOpera
         return newItem;
     }
     
+    public virtual async Task<TToolRequirement> UpdateToolRequirement(int reqId, Action<TToolRequirement> update)
+    {
+        var target = await _db.ToolRequirements.FirstAsync(x => x.Id == reqId);
+        update.Invoke(target);
+        await _db.SaveChangesAsync();
+        return target;
+    }
+    
     public virtual async Task<MaterialRequirement> AddMaterialRequirement(int routeOpRootId, MaterialRequirement newItem)
     {
         newItem.RouteOpRootId = routeOpRootId;
         await _db.MaterialRequirements.AddAsync(newItem);
         await _db.SaveChangesAsync();
         return newItem;
+    }
+    
+    public virtual async Task<MaterialRequirement> UpdateMaterialRequirement(int reqId, Action<MaterialRequirement> update)
+    {
+        var target = await _db.MaterialRequirements.Include(x => x.Options).FirstAsync(x => x.Id == reqId);
+        update.Invoke(target);
+        await _db.SaveChangesAsync();
+        return target;
+    }
+
+    /// <summary>
+    /// Removes or archives a material requirement, depending on whether it has been referenced already.
+    /// </summary>
+    /// <param name="reqId"></param>
+    /// <returns>true if the requirement was deleted, false if it was archived</returns>
+    public virtual async Task<bool> RemoveMaterialRequirement(int reqId)
+    {
+        var target = await _db.MaterialRequirements.Include(x => x.Options).FirstAsync(x => x.Id == reqId);
+        var isLocked = await _db.MaterialClaims.AnyAsync(x => x.MaterialRequirementId == reqId);
+        if (isLocked)
+        {
+            target.Archived = true;
+        }
+        else
+        {
+            _db.MaterialRequirements.Remove(target);
+        }
+
+        await _db.SaveChangesAsync();
+        return !isLocked;
+    }
+
+    public virtual async Task RemoveToolRequirement(int reqId)
+    {
+        var target = await _db.ToolRequirements.FindAsync(reqId);
+        if (target is null) throw new KeyNotFoundException();
+        _db.ToolRequirements.Remove(target);
+
+        await _db.SaveChangesAsync();
     }
     
     public virtual async Task AddRequirements(int routeOpRootId, TToolRequirement[] toolRequirements,
