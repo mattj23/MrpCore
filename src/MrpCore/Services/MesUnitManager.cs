@@ -243,7 +243,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
         await _db.SaveChangesAsync();
 
         // Apply any requirements
-        await CreateClaims(result.Id, selects, requirements);
+        await CreateClaims(result.Id, selects, requirements, result.Pass);
 
         // Release any tools
         var resultIds = unitRoute.Results.Select(r => r.Id).ToHashSet();
@@ -423,7 +423,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
     }
 
     private async Task CreateClaims(int resultId, IReadOnlyCollection<RequirementSelect> selects,
-        IReadOnlyCollection<RequirementData> requirements)
+        IReadOnlyCollection<RequirementData> requirements, bool pass)
     {
         var updated = false;
         foreach (var req in requirements)
@@ -473,7 +473,7 @@ public class MesUnitManager<TProductType, TUnitState, TProductUnit, TRouteOperat
                         ToolId = match.SelectedId,
                         CapacityTaken = originalToolReq.CapacityTaken ?? 0,
                         ResultId = resultId,
-                        Released = originalToolReq.Type is not ToolRequirementType.Occupied
+                        Released = !pass || originalToolReq.Type is not ToolRequirementType.Occupied
                     });
                     updated = true;
                     break;
